@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.build.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "../../dist/apps/notifications-service",
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "migrations/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}

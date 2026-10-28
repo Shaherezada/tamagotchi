@@ -1,7 +1,7 @@
 # лекции
 /Lectures-Backend-II
 
-# context Markdown files 
+# context Markdown files
 Задание КП Backend.md
 
 # PDFs
@@ -12,6 +12,11 @@
 
 # секреты и сборка
 .env
+.env.*
+!.env.example
 secrets/
+*.pem
 node_modules/
 dist/
+coverage/
+*.tsbuildinfo
