@@ -1,4 +1,4 @@
-import { type EventEnvelope, PREFETCH, type QueueTopology } from '@app/contracts';
+import { DELIVERY_LIMIT, type EventEnvelope, PREFETCH, type QueueTopology } from '@app/contracts';
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { AmqpConnectionManager, ChannelWrapper } from 'amqp-connection-manager';
@@ -9,10 +9,23 @@ import { AMQP_CONNECTION, CONSUMER_TOPOLOGY } from './rabbitmq.constants';
 import { assertConsumerQueues, assertExchanges } from './topology';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const RETRY_DELAY_MS = 1000;
+
+/**
+ * Номер доставки сообщения, с единицы. RabbitMQ 4 не считает nack с возвратом неудачной доставкой
+ * (x-delivery-limit на него не срабатывает), но пишет в x-acquired-count, сколько раз сообщение уже выдавалось.
+ */
+export function deliveryAttempt(message: ConsumeMessage): number {
+  const headers = message.properties.headers ?? {};
+  const previous = Math.max(Number(headers['x-acquired-count'] ?? 0), Number(headers['x-delivery-count'] ?? 0));
+  return (Number.isFinite(previous) ? previous : 0) + 1;
+}
 
 /**
  * Потребитель очереди сервиса: ручной ack после коммита inbox, prefetch = 10. Ошибка обработчика –
- * nack с возвратом в очередь; после x-delivery-limit доставок брокер переложит сообщение в DLQ.
+ * nack с возвратом через паузу; пятая неудачная доставка – nack без возврата, и брокер перекладывает
+ * сообщение через tamagotchi.events.dlx в <сервис>.events.dlq. x-delivery-limit у очереди ловит
+ * доставки, оборванные падением потребителя.
  */
 @Injectable()
 export class RabbitConsumer implements OnModuleInit, OnModuleDestroy {
@@ -67,11 +80,17 @@ export class RabbitConsumer implements OnModuleInit, OnModuleDestroy {
       await this.inbox.process(envelope, handler);
       this.channel.ack(message);
     } catch (error) {
+      const attempt = deliveryAttempt(message);
+      const last = attempt >= DELIVERY_LIMIT;
       this.logger.error(
-        `Ошибка обработки ${routingKey} ${envelope.eventId}, доставка повторится`,
+        `Ошибка обработки ${routingKey} ${envelope.eventId}, доставка ${attempt} из ${DELIVERY_LIMIT}` +
+          (last ? ' – в DLQ' : ', повтор'),
         error instanceof Error ? error.stack : String(error),
       );
-      this.channel.nack(message, false, true);
+      if (!last) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+      }
+      this.channel.nack(message, false, !last);
     }
   }
 

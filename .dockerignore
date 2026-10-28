@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+coverage
+secrets
+.env
+.env.*
+docs
+postman
+*.md
