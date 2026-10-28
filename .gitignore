@@ -6,3 +6,12 @@
 
 # PDFs
 *.pdf
+
+# личный план
+/ПЛАН.md
+
+# секреты и сборка
+.env
+secrets/
+node_modules/
+dist/
