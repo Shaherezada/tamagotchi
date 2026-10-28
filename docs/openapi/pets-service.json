@@ -696,13 +696,33 @@
           "name"
         ]
       },
+      "PetEventType": {
+        "type": "string",
+        "enum": [
+          "BORN",
+          "EVOLVED",
+          "HUNGRY",
+          "UNHAPPY",
+          "DIRTY",
+          "SICK",
+          "MISBEHAVING",
+          "CARE",
+          "CARE_MISTAKE",
+          "DIED"
+        ],
+        "description": "Тип записи хронологии: HUNGRY…MISBEHAVING – начало зова, CARE – уход, CARE_MISTAKE – ошибка ухода"
+      },
       "PetEventDto": {
         "type": "object",
         "properties": {
           "type": {
-            "type": "string",
             "example": "EVOLVED",
-            "description": "Тип записи хронологии"
+            "description": "Тип записи хронологии: HUNGRY…MISBEHAVING – начало зова, CARE – уход, CARE_MISTAKE – ошибка ухода",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PetEventType"
+              }
+            ]
           },
           "details": {
             "type": "object",
