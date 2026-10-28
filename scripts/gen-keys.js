@@ -4,7 +4,7 @@
  *
  *   npm run keys
  */
-const crypto = require('node:crypto');
+const { generateKeyPairSync } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -17,7 +17,7 @@ if (fs.existsSync(privateFile) && fs.existsSync(publicFile)) {
   process.exit(0);
 }
 
-const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+const { privateKey, publicKey } = generateKeyPairSync('rsa', {
   modulusLength: 2048,
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },

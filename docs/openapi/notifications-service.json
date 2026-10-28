@@ -1,0 +1,600 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/notifications": {
+      "get": {
+        "description": "Курсорная пагинация: nextCursor передаётся в cursor",
+        "operationId": "Notifications_list",
+        "parameters": [
+          {
+            "name": "unreadOnly",
+            "required": false,
+            "in": "query",
+            "description": "Только непрочитанные",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "nextCursor из предыдущей страницы",
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница уведомлений",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мои уведомления",
+        "tags": [
+          "notifications-service"
+        ]
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "operationId": "Notifications_unreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Счётчик",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Число непрочитанных",
+        "tags": [
+          "notifications-service"
+        ]
+      }
+    },
+    "/api/notifications/stream": {
+      "get": {
+        "description": "Каждое новое уведомление приходит событием notification с NotificationDto в data",
+        "operationId": "Notifications_stream",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Поток text/event-stream",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "example": "event: notification\ndata: {…}\n\n"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Живой поток уведомлений (SSE)",
+        "tags": [
+          "notifications-service"
+        ]
+      }
+    },
+    "/api/notifications/settings": {
+      "get": {
+        "operationId": "Notifications_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Какие уведомления присылать",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Настройки уведомлений",
+        "tags": [
+          "notifications-service"
+        ]
+      },
+      "put": {
+        "operationId": "Notifications_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Сохранённые настройки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Изменить настройки уведомлений",
+        "tags": [
+          "notifications-service"
+        ]
+      }
+    },
+    "/api/notifications/read-all": {
+      "post": {
+        "operationId": "Notifications_readAll",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Все уведомления отмечены прочитанными"
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Прочитать все",
+        "tags": [
+          "notifications-service"
+        ]
+      }
+    },
+    "/api/notifications/{id}": {
+      "patch": {
+        "operationId": "Notifications_markRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Уведомление",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отметить уведомление прочитанным",
+        "tags": [
+          "notifications-service"
+        ]
+      },
+      "delete": {
+        "operationId": "Notifications_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Удалено"
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Удалить уведомление",
+        "tags": [
+          "notifications-service"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "notifications-service – уведомления",
+    "description": "Уведомления игрока о событиях питомца: список, прочитать, удалить, настройки, живой поток SSE",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "notifications-service",
+      "description": "Уведомления игрока о событиях питомца: список, прочитать, удалить, настройки, живой поток SSE"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "quantity",
+            "description": "Поле запроса, путь через точку для вложенных"
+          },
+          "message": {
+            "type": "string",
+            "example": "quantity must not be less than 1"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "https://tamagotchi.local/problems/insufficient-funds",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "example": "Недостаточно монет"
+          },
+          "status": {
+            "type": "number",
+            "example": 409
+          },
+          "detail": {
+            "type": "string",
+            "example": "Покупка стоит 30 монет, на счету 12"
+          },
+          "instance": {
+            "type": "string",
+            "example": "/api/purchases"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "c1a7d1f2-6a43-4f0e-9e7d-2b8c1a9d0e11",
+            "description": "Значение заголовка X-Request-Id"
+          },
+          "errors": {
+            "description": "Только у ошибки валидации (400)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "instance",
+          "requestId"
+        ]
+      },
+      "NotificationType": {
+        "type": "string",
+        "enum": [
+          "WELCOME",
+          "PET_HUNGRY",
+          "PET_SICK",
+          "PET_EVOLVED",
+          "PET_DIED"
+        ]
+      },
+      "NotificationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotificationType"
+              }
+            ]
+          },
+          "title": {
+            "type": "string",
+            "example": "Питомец голоден"
+          },
+          "body": {
+            "type": "string",
+            "example": "Пушок давно ничего не ел – покормите его"
+          },
+          "petId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "body",
+          "petId",
+          "isRead",
+          "createdAt"
+        ]
+      },
+      "NotificationPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Новые первыми",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Курсор следующей страницы; null – страниц больше нет"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
+      "UnreadCountDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "SettingsDto": {
+        "type": "object",
+        "properties": {
+          "petHungry": {
+            "type": "boolean",
+            "example": true
+          },
+          "petSick": {
+            "type": "boolean",
+            "example": true
+          },
+          "petEvolved": {
+            "type": "boolean",
+            "example": true
+          },
+          "petDied": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "petHungry",
+          "petSick",
+          "petEvolved",
+          "petDied"
+        ]
+      }
+    }
+  }
+}

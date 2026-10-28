@@ -1,0 +1,1370 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/items": {
+      "get": {
+        "description": "Активные предметы; ответ кэшируется в Redis на 5 минут",
+        "operationId": "Items_list",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Без параметра – все категории",
+            "schema": {
+              "$ref": "#/components/schemas/Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Предметы каталога",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Каталог предметов",
+        "tags": [
+          "care-service"
+        ],
+        "security": []
+      },
+      "post": {
+        "operationId": "Items_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Предмет создан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для этой роли",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Код предмета занят",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Новый предмет (админ)",
+        "tags": [
+          "care-service"
+        ]
+      }
+    },
+    "/api/items/{itemId}": {
+      "get": {
+        "operationId": "Items_get",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Предмет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Предмет",
+        "tags": [
+          "care-service"
+        ],
+        "security": []
+      },
+      "patch": {
+        "description": "isActive: false снимает с продажи",
+        "operationId": "Items_update",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Изменённый предмет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для этой роли",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Изменить или отключить предмет (админ)",
+        "tags": [
+          "care-service"
+        ]
+      }
+    },
+    "/api/items/{itemId}/icon": {
+      "put": {
+        "description": "PNG, JPEG или WebP до 512 КБ",
+        "operationId": "Items_uploadIcon",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "icon"
+                ],
+                "properties": {
+                  "icon": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Иконка загружена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IconDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Недостаточно прав для этой роли",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Файл больше 512 КБ",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Не PNG, JPEG или WebP",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Загрузить иконку предмета в Silo (админ)",
+        "tags": [
+          "care-service"
+        ]
+      }
+    },
+    "/api/wallet": {
+      "get": {
+        "operationId": "Wallet_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Сколько последних операций вернуть",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Кошелёк игрока",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Баланс и журнал операций",
+        "tags": [
+          "care-service"
+        ]
+      }
+    },
+    "/api/inventory": {
+      "get": {
+        "operationId": "Inventory_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Предметы игрока с количеством",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InventoryItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мой инвентарь",
+        "tags": [
+          "care-service"
+        ]
+      }
+    },
+    "/api/purchases": {
+      "post": {
+        "description": "Списание монет и пополнение инвентаря – одной транзакцией",
+        "operationId": "Purchases_buy",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Покупка и новый баланс",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Предмет не найден или снят с продажи",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Не хватает монет",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Купить предмет",
+        "tags": [
+          "care-service"
+        ]
+      }
+    },
+    "/api/care-actions": {
+      "post": {
+        "description": "Кормить, угостить, играть, убрать, лечить, воспитывать, свет. Предмет списывается, эффект применяет pets-service по gRPC; при отказе предмет возвращается",
+        "operationId": "CareActions_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCareActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Действие применено, новое состояние питомца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет питомца, он чужой, или нет предмета",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Питомец спит, ещё яйцо или умер; предмета нет в инвентаре или он не подходит к действию",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "pets-service недоступен: действие осталось PENDING и будет повторено",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Действие ухода",
+        "tags": [
+          "care-service"
+        ]
+      },
+      "get": {
+        "description": "Мои действия, новые первыми; petId – по одному питомцу",
+        "operationId": "CareActions_list",
+        "parameters": [
+          {
+            "name": "petId",
+            "required": false,
+            "in": "query",
+            "description": "Только по этому питомцу",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Действия ухода",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CareActionDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет питомца или он чужой",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "История ухода",
+        "tags": [
+          "care-service"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "care-service – уход и предметы",
+    "description": "Каталог предметов, магазин, кошелёк, инвентарь, действия ухода за питомцем",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "care-service",
+      "description": "Каталог предметов, магазин, кошелёк, инвентарь, действия ухода за питомцем"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "quantity",
+            "description": "Поле запроса, путь через точку для вложенных"
+          },
+          "message": {
+            "type": "string",
+            "example": "quantity must not be less than 1"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "https://tamagotchi.local/problems/insufficient-funds",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "example": "Недостаточно монет"
+          },
+          "status": {
+            "type": "number",
+            "example": 409
+          },
+          "detail": {
+            "type": "string",
+            "example": "Покупка стоит 30 монет, на счету 12"
+          },
+          "instance": {
+            "type": "string",
+            "example": "/api/purchases"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "c1a7d1f2-6a43-4f0e-9e7d-2b8c1a9d0e11",
+            "description": "Значение заголовка X-Request-Id"
+          },
+          "errors": {
+            "description": "Только у ошибки валидации (400)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "instance",
+          "requestId"
+        ]
+      },
+      "Category": {
+        "type": "string",
+        "enum": [
+          "FOOD",
+          "SNACK",
+          "MEDICINE",
+          "TOY"
+        ]
+      },
+      "ItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "rice"
+          },
+          "title": {
+            "type": "string",
+            "example": "Рис"
+          },
+          "description": {
+            "type": "string",
+            "example": "Простая сытная еда"
+          },
+          "category": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Category"
+              }
+            ]
+          },
+          "price": {
+            "type": "number",
+            "example": 5
+          },
+          "isConsumable": {
+            "type": "boolean",
+            "example": true
+          },
+          "hungerDelta": {
+            "type": "number",
+            "example": 1
+          },
+          "happinessDelta": {
+            "type": "number",
+            "example": 0
+          },
+          "weightDelta": {
+            "type": "number",
+            "example": 1
+          },
+          "curesSickness": {
+            "type": "boolean",
+            "example": false
+          },
+          "iconUrl": {
+            "type": "string",
+            "nullable": true,
+            "format": "uri",
+            "example": "http://localhost:9000/tamagotchi-media/items/3f1c2a4e-8b1d-4c7e-9f2a-5d6b7c8e9f01.png"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "title",
+          "description",
+          "category",
+          "price",
+          "isConsumable",
+          "hungerDelta",
+          "happinessDelta",
+          "weightDelta",
+          "curesSickness",
+          "iconUrl"
+        ]
+      },
+      "CreateItemDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "rice",
+            "pattern": "^[a-z0-9_]{2,32}$",
+            "description": "Неизменяемый код предмета"
+          },
+          "title": {
+            "type": "string",
+            "example": "Рис",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "example": "Простая сытная еда",
+            "maxLength": 256
+          },
+          "category": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Category"
+              }
+            ]
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 5,
+            "description": "Цена в монетах"
+          },
+          "isConsumable": {
+            "type": "boolean",
+            "description": "Тратится при использовании (игрушка – нет)",
+            "example": true
+          },
+          "hungerDelta": {
+            "type": "number",
+            "minimum": -4,
+            "maximum": 4,
+            "example": 1,
+            "description": "Изменение сытости, сердечки"
+          },
+          "happinessDelta": {
+            "type": "number",
+            "minimum": -4,
+            "maximum": 4,
+            "example": 0,
+            "description": "Изменение настроения, сердечки"
+          },
+          "weightDelta": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10,
+            "example": 1,
+            "description": "Изменение веса"
+          },
+          "curesSickness": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "code",
+          "title",
+          "description",
+          "category",
+          "price",
+          "isConsumable",
+          "hungerDelta",
+          "happinessDelta",
+          "weightDelta",
+          "curesSickness"
+        ]
+      },
+      "UpdateItemDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Рис",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "example": "Простая сытная еда",
+            "maxLength": 256
+          },
+          "category": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Category"
+              }
+            ]
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000,
+            "example": 5,
+            "description": "Цена в монетах"
+          },
+          "isConsumable": {
+            "type": "boolean",
+            "description": "Тратится при использовании (игрушка – нет)",
+            "example": true
+          },
+          "hungerDelta": {
+            "type": "number",
+            "minimum": -4,
+            "maximum": 4,
+            "example": 1,
+            "description": "Изменение сытости, сердечки"
+          },
+          "happinessDelta": {
+            "type": "number",
+            "minimum": -4,
+            "maximum": 4,
+            "example": 0,
+            "description": "Изменение настроения, сердечки"
+          },
+          "weightDelta": {
+            "type": "number",
+            "minimum": -10,
+            "maximum": 10,
+            "example": 1,
+            "description": "Изменение веса"
+          },
+          "curesSickness": {
+            "type": "boolean",
+            "example": false
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "false – предмет снят с продажи"
+          }
+        }
+      },
+      "IconDto": {
+        "type": "object",
+        "properties": {
+          "iconUrl": {
+            "type": "string",
+            "format": "uri",
+            "example": "http://localhost:9000/tamagotchi-media/items/3f1c2a4e-8b1d-4c7e-9f2a-5d6b7c8e9f01.png"
+          }
+        },
+        "required": [
+          "iconUrl"
+        ]
+      },
+      "Reason": {
+        "type": "string",
+        "enum": [
+          "STARTER_KIT",
+          "PURCHASE",
+          "PLAY_REWARD",
+          "EVOLUTION_REWARD"
+        ]
+      },
+      "WalletTransactionDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": -10,
+            "description": "Плюс – начисление, минус – списание"
+          },
+          "balanceAfter": {
+            "type": "number",
+            "example": 90
+          },
+          "reason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Reason"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "amount",
+          "balanceAfter",
+          "reason",
+          "createdAt"
+        ]
+      },
+      "WalletDto": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "number",
+            "example": 90,
+            "description": "Баланс в монетах"
+          },
+          "transactions": {
+            "description": "Последние операции, новые первыми",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalletTransactionDto"
+            }
+          }
+        },
+        "required": [
+          "balance",
+          "transactions"
+        ]
+      },
+      "InventoryItemDto": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/ItemDto"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "item",
+          "quantity"
+        ]
+      },
+      "PurchaseDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 99,
+            "example": 2
+          }
+        },
+        "required": [
+          "itemId",
+          "quantity"
+        ]
+      },
+      "PurchaseResultDto": {
+        "type": "object",
+        "properties": {
+          "purchaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 2
+          },
+          "totalPrice": {
+            "type": "number",
+            "example": 10
+          },
+          "balance": {
+            "type": "number",
+            "example": 90,
+            "description": "Баланс после покупки"
+          }
+        },
+        "required": [
+          "purchaseId",
+          "itemId",
+          "quantity",
+          "totalPrice",
+          "balance"
+        ]
+      },
+      "CareType": {
+        "type": "string",
+        "enum": [
+          "FEED",
+          "SNACK",
+          "PLAY",
+          "CLEAN",
+          "HEAL",
+          "SCOLD",
+          "LIGHTS_OFF",
+          "LIGHTS_ON"
+        ]
+      },
+      "CreateCareActionDto": {
+        "type": "object",
+        "properties": {
+          "petId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "example": "FEED",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CareType"
+              }
+            ]
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Предмет из инвентаря: FEED – еда, SNACK – лакомство, HEAL – лекарство, PLAY – игрушка"
+          }
+        },
+        "required": [
+          "petId",
+          "type"
+        ]
+      },
+      "CareStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "APPLIED",
+          "REJECTED"
+        ]
+      },
+      "CareActionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "petId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CareType"
+              }
+            ]
+          },
+          "itemId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CareStatus"
+              }
+            ]
+          },
+          "rejectReason": {
+            "type": "string",
+            "nullable": true,
+            "example": "PET_SLEEPING",
+            "description": "Причина отказа для REJECTED"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "petId",
+          "type",
+          "itemId",
+          "status",
+          "rejectReason",
+          "createdAt"
+        ]
+      },
+      "PetSnapshot": {
+        "type": "object",
+        "properties": {
+          "petId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Пушок"
+          },
+          "stage": {
+            "type": "string",
+            "example": "CHILD"
+          },
+          "formCode": {
+            "type": "string",
+            "example": "child_good"
+          },
+          "hunger": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4,
+            "example": 4
+          },
+          "happiness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4,
+            "example": 2
+          },
+          "discipline": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 50
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 1,
+            "example": 11
+          },
+          "poopCount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4,
+            "example": 0
+          },
+          "isSick": {
+            "type": "boolean"
+          },
+          "isSleeping": {
+            "type": "boolean"
+          },
+          "careMistakes": {
+            "type": "number",
+            "minimum": 0,
+            "example": 1
+          },
+          "careMistakeMade": {
+            "type": "boolean",
+            "description": "Этим действием допущена ошибка ухода"
+          }
+        },
+        "required": [
+          "petId",
+          "name",
+          "stage",
+          "formCode",
+          "hunger",
+          "happiness",
+          "discipline",
+          "weight",
+          "poopCount",
+          "isSick",
+          "isSleeping",
+          "careMistakes",
+          "careMistakeMade"
+        ]
+      },
+      "CareResultDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/CareActionDto"
+          },
+          "pet": {
+            "description": "Состояние питомца после ухода",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PetSnapshot"
+              }
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "pet"
+        ]
+      }
+    }
+  }
+}
