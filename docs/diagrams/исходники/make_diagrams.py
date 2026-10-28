@@ -713,7 +713,7 @@ model('UsersService', ['- users: Repository<User>', '- hasher: PasswordHasher'],
        '+ changePassword(userId: string, ChangePasswordDto): void'])
 model('JwtTokenService', ['- jwt: JwtService'], ['+ issue(User): AuthTokenDto'])
 HASHER = ['+ hash(password: string): string', '+ verify(hash: string, password: string): boolean']
-model('PasswordHasher', [], HASHER, stereotype='interface')
+model('PasswordHasher', [], HASHER, stereotype='abstract')
 model('Argon2PasswordHasher', [], HASHER)
 model('User', ['+ id: string', '+ login: string', '+ nickname: string', '+ passwordHash: string', '+ role: Role',
                '+ createdAt: Date', '+ updatedAt: Date'])
@@ -748,7 +748,7 @@ model('LifecycleService', ['- dataSource: DataSource', '- outbox: OutboxService'
       ['+ processDue(limit: number): number',
        '+ timeTravel(petId: string, minutes: number): PetDto'])
 model('Simulation', [], ['+ simulate(Pet, now: Date, GameRules, Rng): SimulationResult'], stereotype='utility')
-model('SimulationResult', ['+ pet: Pet', '+ history: PetEvent[]', '+ events: EventEnvelope[]'])
+model('SimulationResult', ['+ pet: Pet', '+ history: PetEvent[]', '+ events: EventEnvelope[]'], stereotype='interface')
 model('GameRules', ['+ gameSpeed: number', '+ stageMinutes: Record<Stage, number>', '+ decayMinutes: number',
                     '+ callMinutes: number', '+ neglectHours: number'])
 model('PetCareGrpcController', ['- care: PetCareService'],
@@ -758,7 +758,7 @@ model('PetCareService', ['- dataSource: DataSource', '- rules: GameRules'],
       ['+ apply(ApplyCareActionRequest): PetSnapshot',
        '+ snapshot(GetPetSnapshotRequest): PetSnapshot'])
 model('CareRules', [], ['+ applyCare(Pet, ApplyCareActionRequest, now: Date): CareOutcome'], stereotype='utility')
-model('CareOutcome', ['+ pet: Pet', '+ mistake: boolean', '+ history: PetEvent[]'])
+model('CareOutcome', ['+ pet: Pet', '+ mistake: boolean', '+ history: PetEvent[]'], stereotype='interface')
 model('Pet', ['+ id: string', '+ ownerId: string', '+ name: string', '+ stage: Stage', '+ form: PetForm',
               '+ hunger: number', '+ happiness: number', '+ discipline: number', '+ weight: number',
               '+ poopCount: number', '+ isSick: boolean', '+ isSleeping: boolean', '+ attention: Attention | null',
@@ -815,8 +815,9 @@ model('WalletDto', ['+ balance: number', '+ transactions: WalletTransactionDto[]
 model('WalletTransactionDto', ['+ amount: number', '+ balanceAfter: number', '+ reason: Reason',
                                '+ createdAt: Date'])
 model('InventoryItemDto', ['+ item: ItemDto', '+ quantity: number'])
-model('WalletChange', ['+ userId: string', '+ amount: number', '+ reason: Reason', '+ referenceId?: string'])
-model('InventoryChange', ['+ userId: string', '+ itemId: string', '+ quantity: number'])
+model('WalletChange', ['+ userId: string', '+ amount: number', '+ reason: Reason', '+ referenceId?: string'],
+      stereotype='interface')
+model('InventoryChange', ['+ userId: string', '+ itemId: string', '+ quantity: number'], stereotype='interface')
 model('Reason', ['STARTER_KIT', 'PURCHASE', 'PLAY_REWARD', 'EVOLUTION_REWARD'], stereotype='enumeration')
 model('CareActionsController', ['- careActions: CareActionsService'],
       ['+ create(CreateCareActionDto): CareResultDto',
@@ -845,7 +846,7 @@ model('Item', ['+ id: string'] + ITEM_FIELDS + ['+ iconKey: string | null', '+ i
 model('Wallet', ['+ userId: string', '+ balance: number', '+ updatedAt: Date'])
 model('WalletTransaction', ['+ id: string', '+ wallet: Wallet', '+ amount: number', '+ balanceAfter: number',
                             '+ reason: Reason', '+ referenceId: string | null', '+ createdAt: Date'])
-model('InventoryItem', ['+ userId: string', '+ item: Item', '+ quantity: number', '+ updatedAt: Date'])
+model('InventoryItem', ['+ userId: string', '+ itemId: string', '+ item: Item', '+ quantity: number', '+ updatedAt: Date'])
 model('Purchase', ['+ id: string', '+ userId: string', '+ item: Item', '+ quantity: number', '+ unitPrice: number',
                    '+ totalPrice: number', '+ createdAt: Date'])
 model('CareAction', ['+ id: string', '+ userId: string', '+ petId: string', '+ type: CareType',
@@ -854,7 +855,7 @@ model('CareAction', ['+ id: string', '+ userId: string', '+ petId: string', '+ t
                      '+ completedAt: Date | null'])
 
 # --- notifications-service
-model('NotificationsController', ['- notifications: NotificationsService', '- stream: NotificationStream'],
+model('NotificationsController', ['- notifications: NotificationsService', '- notificationStream: NotificationStream'],
       ['+ list(NotificationsQuery): NotificationPageDto',
        '+ unreadCount(): UnreadCountDto', '+ markRead(id: string): NotificationDto',
        '+ readAll(): void', '+ remove(id: string): void',
@@ -882,7 +883,7 @@ model('PetEventsHandler', ['+ routingKeys: string[]', '- notifications: Notifica
 model('NotificationTexts', [], ['+ welcome(UserRegistered): NewNotification',
                                 '+ forPet(EventEnvelope): NewNotification'], stereotype='utility')
 model('NewNotification', ['+ userId: string', '+ type: NotificationType', '+ title: string', '+ body: string',
-                          '+ petId?: string'])
+                          '+ petId?: string'], stereotype='interface')
 model('Notification', ['+ id: string', '+ userId: string', '+ type: NotificationType', '+ title: string',
                        '+ body: string', '+ petId: string | null', '+ isRead: boolean', '+ createdAt: Date',
                        '+ readAt: Date | null'])
@@ -935,6 +936,13 @@ def cid_of(name):
     return re.sub(r'\W', '_', name)
 
 
+def head_html(stereotype, name):
+    """Заголовок из двух строк: «стереотип» над именем, у абстрактного класса – имя курсивом и {abstract}."""
+    if stereotype == 'abstract':
+        return '<b><i>%s</i></b><br>{abstract}' % html.escape(name)
+    return '&laquo;%s&raquo;<br><b>%s</b>' % (stereotype, html.escape(name))
+
+
 def uml_class(page, name, x, y, w=None):
     """UML → Class: имя (со «стереотипом»), поля, черта, методы. У «utility» методы статические."""
     cid = cid_of(name)
@@ -944,7 +952,7 @@ def uml_class(page, name, x, y, w=None):
     assert natural <= w, '%s: нужно %d, дано %d' % (name, natural, w)
     head = HEAD2 if stereotype else HEAD
     if stereotype:
-        title, bold = '&laquo;%s&raquo;<br><b>%s</b>' % (stereotype, html.escape(name)), 0
+        title, bold = head_html(stereotype, name), 0
     else:
         title, bold = html.escape(name), 1
     page.vertex(cid, attr(title), CLASS % (bold, head), x, y, w, h)
@@ -973,15 +981,15 @@ def ref_class(page, name, x, y, stereotype=None):
     """Класс, подробно показанный на другом листе: только имя (отделения скрыты)."""
     w = math.ceil(max(text_width(name, True), text_width('«%s»' % stereotype) if stereotype else 0) + 16)
     if stereotype:
-        value, h = '&laquo;%s&raquo;<br><b>%s</b>' % (stereotype, html.escape(name)), HEAD2
+        value, h = head_html(stereotype, name), HEAD2
     else:
         value, h = '<b>%s</b>' % html.escape(name), HEAD
     page.vertex(cid_of(name), attr(value), REF.replace('fontStyle=1;', 'fontStyle=0;'), x, y, w, h)
     return page.box[cid_of(name)]
 
 
-def ref_width(name):
-    return math.ceil(text_width(name, True) + 16)
+def ref_width(name, stereotype=None):
+    return math.ceil(max(text_width(name, True), text_width('«%s»' % stereotype) if stereotype else 0) + 16)
 
 
 def box(page, name):
@@ -1235,7 +1243,7 @@ def users_profile_page():
     y = bottom_edge(page, 'UsersService') + GAP
     uml_class(page, 'User', 1, y)
     vline(page, DEP, 'UsersService', 'User', 100)
-    ref_class(page, 'PasswordHasher', 300, y, 'interface')
+    ref_class(page, 'PasswordHasher', 300, y, 'abstract')
     vline(page, ASSOC, 'UsersService', 'PasswordHasher', 300 + 60)
     return page
 
@@ -1394,12 +1402,14 @@ def care_catalog_api_page():
     vline(page, DEP, 'ItemsController', 'CreateItemDto', 110)
     uml_class(page, 'ItemDto', right_edge(page, 'CreateItemDto') + 40, y)
     vline(page, DEP, 'ItemsController', 'ItemDto', 368)
-    # изменение: поля нового предмета, все необязательные (PartialType), и признак isActive
+    # изменение: PartialType(OmitType(CreateItemDto, ['code'])) и признак isActive; ограничения – у стрелки
     kx, ky, kw, kh = box(page, 'CreateItemDto')
     uw = class_size('UpdateItemDto')[0]
-    uml_class(page, 'UpdateItemDto', kx + (kw - uw) / 2, ky + kh + GAP)
+    uml_class(page, 'UpdateItemDto', kx + (kw - uw) / 2, ky + kh + GAP + 16)
     ux, uy, uw, uh = box(page, 'UpdateItemDto')
-    vline(page, GEN, 'UpdateItemDto', 'CreateItemDto', 80)
+    eid = vline(page, GEN, 'UpdateItemDto', 'CreateItemDto', ux + 16)
+    page.edge_label(eid, '{поля необязательны}', 'target', 'below-right')
+    page.edge_label(eid, '{без code}', 'source', 'above-right')
     x_gap = (kx + kw + box(page, 'ItemDto')[0]) / 2
     arrow(page, DEP, 'ItemsController', 'UpdateItemDto', [(x_gap, cy + ch), (x_gap, uy + uh / 2), (ux + uw, uy + uh / 2)])
     return page
@@ -1478,7 +1488,7 @@ def care_shop_services_page():
     ref_class(page, 'InventoryItem', x_right, iy)
     hline(page, DEP, 'InventoryService', 'InventoryItem', iy + HEAD / 2)
     uml_class(page, 'InventoryChange', x_right, iy + HEAD + 20)
-    hline(page, DEP, 'InventoryService', 'InventoryChange', field_y(page, 'InventoryChange', 1))
+    hline(page, DEP, 'InventoryService', 'InventoryChange', box(page, 'InventoryChange')[1] + HEAD2 / 2)
     uml_class(page, 'WalletService', 1, iy + ih + GAP)
     wx, wy, ww, wh = box(page, 'WalletService')
     # к кошельку – по коридору справа, мимо инвентаря
@@ -1678,7 +1688,8 @@ def notifications_data_page():
     tx, ty, tw, th = ref_class(page, 'NotificationStream', WIDTH - 1 - ref_width('NotificationStream'), y)
     arrow(page, ASSOC, 'NotificationsService', 'NotificationStream', [(460, sy + sh), (460, y - 20),
                                                                       (tx + tw / 2, y - 20), (tx + tw / 2, ty)])
-    kx, ky, kw, kh = ref_class(page, 'NewNotification', WIDTH - 1 - ref_width('NewNotification'), y + HEAD + GAP)
+    kx, ky, kw, kh = ref_class(page, 'NewNotification', WIDTH - 1 - ref_width('NewNotification', 'interface'), y + HEAD + GAP,
+                                 'interface')
     arrow(page, DEP, 'NotificationsService', 'NewNotification', [(440, sy + sh), (440, ky + kh / 2), (kx, ky + kh / 2)])
     uml_class(page, 'NotificationType', 1, bottom_edge(page, 'Notification') + GAP)
     vline(page, ASSOC, 'Notification', 'NotificationType', 76)
@@ -1714,7 +1725,7 @@ def users_page():
     hline(page, ASSOC, 'AuthService', 'JwtTokenService', y_tokens)
     vline(page, DEP, 'JwtTokenService', 'User', right_edge(page, 'UserRegistered') + 22)
     # хэш пароля – справа от UsersController: к нему AuthService сверху, UsersService снизу
-    hx, hy, hw, hh = ref_class(page, 'PasswordHasher', ex, cy + (ch - HEAD2) / 2, 'interface')
+    hx, hy, hw, hh = ref_class(page, 'PasswordHasher', ex, cy + (ch - HEAD2) / 2, 'abstract')
     y_hasher = field_y(page, 'AuthService', 5)
     x_down = hx + round(hw * 3 / 4)
     arrow(page, ASSOC, 'AuthService', 'PasswordHasher', [(sx + sw, y_hasher), (x_down, y_hasher), (x_down, hy)])
