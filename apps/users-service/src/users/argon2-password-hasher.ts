@@ -1,13 +1,19 @@
-import { Injectable, NotImplementedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { hash, verify } from 'argon2';
 import { PasswordHasher } from './password-hasher';
 
 @Injectable()
 export class Argon2PasswordHasher implements PasswordHasher {
-  hash(_password: string): Promise<string> {
-    throw new NotImplementedException();
+  hash(password: string): Promise<string> {
+    return hash(password);
   }
 
-  verify(_hash: string, _password: string): Promise<boolean> {
-    throw new NotImplementedException();
+  async verify(hash: string, password: string): Promise<boolean> {
+    try {
+      return await verify(hash, password);
+    } catch {
+      // испорченный хэш в БД – не повод для 500, просто пароль не подходит
+      return false;
+    }
   }
 }
