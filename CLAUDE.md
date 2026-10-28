@@ -56,6 +56,9 @@ for i in postgres:18-alpine rabbitmq:4-management-alpine redis:7-alpine adminer:
 for s in users-service pets-service care-service notifications-service; do docker build --secret id=ca,src=/root/.ccr/ca-bundle.crt --build-arg SERVICE=$s -t tamagotchi/$s:dev .; done
 ```
 
+Или сборкой через compose: `mkdir -p secrets && cp /root/.ccr/ca-bundle.crt secrets/proxy-ca.crt` и `BUILD_CA_FILE=./secrets/proxy-ca.crt` в `.env`
+(файл секрета сборки должен лежать внутри проекта), затем `docker compose up -d --build`.
+
 Инфраструктура и сервисы (без `--build`: compose возьмёт собранные образы `tamagotchi/<сервис>:dev`):
 
 ```bash
@@ -78,6 +81,7 @@ docker compose up -d postgres rabbitmq redis silo silo-init
 | Сборка всех / одного | `npm run build` / `npm run build:users` (`:pets`, `:care`, `:notifications`) |
 | Линт и формат | `npm run lint`, `npm run format` |
 | Unit-тесты | `npm test` (Jest с `--experimental-vm-modules`: NestJS 12 – ESM-пакеты) |
+| e2e | `npm run test:e2e` – сценарий демо (`test/e2e/`) против поднятого compose после сида; останавливает и запускает `pets-service` |
 | Сервис локально (watch) | `npm run start:users` и т. д.; порты – `USERS_PORT`… из `.env` (3001–3004) |
 | Миграции | накатываются при старте (`DB_MIGRATIONS_RUN=true`); вручную после сборки – `npm run migration:users` и т. д. |
 | Сид | только после первого старта сервиса (миграции накатываются при старте). Локально после сборки – `npm run seed:users` / `seed:pets` / `seed:care` (файл `dist/apps/<сервис>/apps/<сервис>/src/seed.js`); в Docker образ кладёт `dist/apps/<сервис>` в `/app/dist`, поэтому – `docker compose exec users-service node dist/apps/users-service/src/seed.js` |
