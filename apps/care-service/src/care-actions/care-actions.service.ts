@@ -256,9 +256,13 @@ export class CareActionsService {
 }
 
 function careRejected(rejection: PetCareRejection): ProblemException {
-  return rejection.status === HttpStatus.NOT_FOUND
-    ? ProblemException.notFound('Питомец не найден', rejection.detail, 'pet-not-found')
-    : ProblemException.conflict('care-rejected', 'Питомец не может принять уход', rejection.detail);
+  if (rejection.status === HttpStatus.NOT_FOUND) {
+    return ProblemException.notFound('Питомец не найден', rejection.detail, 'pet-not-found');
+  }
+  if (rejection.status === HttpStatus.BAD_REQUEST) {
+    return ProblemException.badRequest('Некорректное действие ухода', rejection.detail, 'care-invalid');
+  }
+  return ProblemException.conflict('care-rejected', 'Питомец не может принять уход', rejection.detail);
 }
 
 export function toCareActionDto(action: CareAction): CareActionDto {

@@ -214,7 +214,8 @@ message PetSnapshot {
 
 Ошибки gRPC: `NOT_FOUND` – нет питомца или он чужой (HTTP 404), `FAILED_PRECONDITION` – спит, ещё
 яйцо, умер (HTTP 409), `UNAVAILABLE` / `DEADLINE_EXCEEDED` – повтор с тем же `action_id` (HTTP 503),
-`INVALID_ARGUMENT` – неизвестный `type` или `action_id` не UUID (ошибка вызывающего).
+`INVALID_ARGUMENT` – неизвестный `type` или `action_id` не UUID (HTTP 400 `care-invalid`, действие
+REJECTED с `reject_reason = INVALID_CARE_REQUEST`, без повторов).
 
 ## 6. Асинхронные события
 
@@ -428,7 +429,7 @@ sequenceDiagram
   повтора заблокирована `FOR UPDATE SKIP LOCKED`, поэтому два экземпляра не повторят его одновременно,
   а завершённое действие (не PENDING) не меняется и предмет не возвращается дважды.
 - Отказ pets-service записывается в `reject_reason`: машинный код из `details` ошибки gRPC
-  (например `PET_SLEEPING`), иначе `PET_NOT_FOUND` или `PET_UNAVAILABLE`.
+  (например `PET_SLEEPING`), иначе `PET_NOT_FOUND`, `PET_UNAVAILABLE` или `INVALID_CARE_REQUEST`.
 - Предметы без расхода (игрушка) и действия без предмета (убрать, свет, воспитать) идут тем же путём,
   только без шага с инвентарём.
 - Награда: «играть» даёт 5 монет, только если настроение действительно выросло (защита от фарма):
@@ -485,7 +486,7 @@ sequenceDiagram
 | 18 | `GET /api/inventory` | игрок | мой инвентарь | 200 | 401 |
 | 19 | `POST /api/purchases` | игрок | купить предмет | 201 покупка, баланс | 400, 401, 404, 409 не хватает монет |
 | 20 | `GET /api/wallet?limit=` | игрок | баланс и журнал операций | 200 | 400, 401 |
-| 21 | `POST /api/care-actions` | игрок | действие ухода | 200 действие, питомец | 400, 401, 404, 409, 503 |
+| 21 | `POST /api/care-actions` | игрок | действие ухода | 200 действие, питомец | 400 (и отказ pets-service `INVALID_ARGUMENT`), 401, 404, 409, 503 |
 | 22 | `GET /api/care-actions?petId=&limit=` | игрок | история ухода | 200 | 400, 401, 404 |
 | 23 | `GET /api/notifications?unreadOnly=&cursor=` | игрок | уведомления, курсорная пагинация | 200 | 400, 401 |
 | 24 | `GET /api/notifications/unread-count` | игрок | число непрочитанных | 200 | 401 |

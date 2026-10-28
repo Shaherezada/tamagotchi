@@ -34,12 +34,15 @@ describe('PetCareClient', () => {
     expect(apply.mock.calls.every(([r]) => r === request)).toBe(true);
   });
 
-  it('NOT_FOUND и FAILED_PRECONDITION – окончательный ответ, без повторов', async () => {
-    const apply = jest.fn(() => throwError(() => grpcError(GrpcStatus.FAILED_PRECONDITION, 'PET_SLEEPING')));
+  it.each([GrpcStatus.NOT_FOUND, GrpcStatus.FAILED_PRECONDITION, GrpcStatus.INVALID_ARGUMENT])(
+    'код %i – окончательный ответ, без повторов',
+    async (code) => {
+      const apply = jest.fn(() => throwError(() => grpcError(code, 'PET_SLEEPING')));
 
-    await expect(client(apply).apply(request)).rejects.toMatchObject({ code: GrpcStatus.FAILED_PRECONDITION });
-    expect(apply).toHaveBeenCalledTimes(1);
-  });
+      await expect(client(apply).apply(request)).rejects.toMatchObject({ code });
+      expect(apply).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('после сбоя второй попытки отдаёт ответ pets-service', async () => {
     const pet = { petId: 'p1', hunger: 4 } as PetSnapshot;
@@ -53,7 +56,7 @@ describe('PetCareClient', () => {
 });
 
 describe('toPetCareRejection', () => {
-  it('коды gRPC → 404 / 409 / недоступен', () => {
+  it('коды gRPC → 404 / 409 / 400 / недоступен', () => {
     expect(toPetCareRejection(grpcError(GrpcStatus.NOT_FOUND))).toMatchObject({
       status: HttpStatus.NOT_FOUND,
       reason: 'PET_NOT_FOUND',
@@ -66,6 +69,11 @@ describe('toPetCareRejection', () => {
       status: HttpStatus.CONFLICT,
       reason: 'PET_UNAVAILABLE',
       detail: 'Питомец спит',
+    });
+    expect(toPetCareRejection(grpcError(GrpcStatus.INVALID_ARGUMENT, 'actionId должен быть UUID'))).toMatchObject({
+      status: HttpStatus.BAD_REQUEST,
+      reason: 'INVALID_CARE_REQUEST',
+      detail: 'actionId должен быть UUID',
     });
     expect(toPetCareRejection(grpcError(GrpcStatus.UNAVAILABLE))).toBeNull();
     expect(toPetCareRejection(new Error('Execution timed out'))).toBeNull();

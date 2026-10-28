@@ -26,7 +26,7 @@ export const PETS_GRPC_CLIENT = Symbol('PETS_GRPC_CLIENT');
 
 const RETRYABLE = [GrpcStatus.UNAVAILABLE, GrpcStatus.DEADLINE_EXCEEDED];
 
-// повторяются недоступность и таймаут; NOT_FOUND и FAILED_PRECONDITION – окончательный ответ pets-service
+// повторяются недоступность и таймаут; NOT_FOUND, FAILED_PRECONDITION и INVALID_ARGUMENT – окончательный ответ pets-service
 function isRetryable(error: unknown): boolean {
   return error instanceof TaskCancelledError || RETRYABLE.includes((error as { code?: number } | null)?.code ?? -1);
 }
@@ -71,7 +71,7 @@ export class PetCareClient implements OnModuleInit {
 
 /** Окончательный отказ pets-service: предмет возвращается, действие REJECTED. */
 export interface PetCareRejection {
-  status: HttpStatus.NOT_FOUND | HttpStatus.CONFLICT;
+  status: HttpStatus.BAD_REQUEST | HttpStatus.NOT_FOUND | HttpStatus.CONFLICT;
   /** Код для care_actions.reject_reason, не длиннее 32 символов. */
   reason: string;
   detail: string;
@@ -80,7 +80,7 @@ export interface PetCareRejection {
 const REASON_PATTERN = /^[A-Z][A-Z0-9_]{1,31}$/;
 
 /**
- * Ошибка вызова PetCare → отказ (§5: NOT_FOUND – 404, FAILED_PRECONDITION – 409) или null,
+ * Ошибка вызова PetCare → отказ (§5: NOT_FOUND – 404, FAILED_PRECONDITION – 409, INVALID_ARGUMENT – 400) или null,
  * если pets-service недоступен (таймаут, UNAVAILABLE, разомкнутый breaker и прочее) – тогда 503 и повтор.
  */
 export function toPetCareRejection(error: unknown): PetCareRejection | null {
@@ -95,6 +95,14 @@ export function toPetCareRejection(error: unknown): PetCareRejection | null {
       status: HttpStatus.CONFLICT,
       reason: reason ?? 'PET_UNAVAILABLE',
       detail: reason ? `Питомец сейчас не может принять уход: ${reason}` : details || 'Питомец спит, ещё яйцо или умер',
+    };
+  }
+  if (code === GrpcStatus.INVALID_ARGUMENT) {
+    // повтор с тем же запросом получит тот же отказ – действие сразу REJECTED
+    return {
+      status: HttpStatus.BAD_REQUEST,
+      reason: reason ?? 'INVALID_CARE_REQUEST',
+      detail: details || 'pets-service отклонил запрос ухода как некорректный',
     };
   }
   return null;

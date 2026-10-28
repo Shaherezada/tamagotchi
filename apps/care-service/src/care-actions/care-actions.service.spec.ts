@@ -102,6 +102,26 @@ describe('CareActionsService', () => {
       ]);
     });
 
+    it('pets-service отклонил запрос (INVALID_ARGUMENT): 400, предмет возвращён, REJECTED без повторов', async () => {
+      const { service, pets, items, actions, ...care } = setup();
+      care.giveItem(PLAYER, 'rice', 1);
+      pets.apply.mockRejectedValue(grpcError(GrpcStatus.INVALID_ARGUMENT, 'Неизвестное действие'));
+
+      const error = await service
+        .perform(PLAYER, { petId: PET, type: CareType.FEED, itemId: items.rice.id })
+        .catch((e: unknown) => e);
+
+      expect((error as ProblemException).problem).toMatchObject({
+        status: 400,
+        type: expect.stringMatching(/care-invalid$/),
+      });
+      expect(care.quantity(PLAYER, 'rice')).toBe(1);
+      expect(actions()).toEqual([
+        expect.objectContaining({ status: CareStatus.REJECTED, rejectReason: 'INVALID_CARE_REQUEST', attempts: 1 }),
+      ]);
+      expect(pets.apply).toHaveBeenCalledTimes(1);
+    });
+
     it('чужой или несуществующий питомец: 404 и возврат предмета', async () => {
       const { service, pets, items, actions, ...care } = setup();
       care.giveItem(PLAYER, 'pill', 1);
