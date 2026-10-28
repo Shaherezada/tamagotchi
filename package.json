@@ -27,10 +27,11 @@
     "openapi": "node scripts/export-openapi.js",
     "openapi:merge": "node scripts/export-openapi.js --merge-only",
     "keys": "node scripts/gen-keys.js",
-    "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\" \"scripts/**/*.js\"",
-    "lint": "eslint \"{apps,libs}/**/*.ts\" \"scripts/**/*.js\"",
+    "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\" \"test/**/*.ts\" \"scripts/**/*.js\"",
+    "lint": "eslint \"{apps,libs,test}/**/*.ts\" \"scripts/**/*.js\"",
     "test": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js",
-    "test:cov": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --coverage"
+    "test:cov": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --coverage",
+    "test:e2e": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --config test/e2e/jest.config.json --runInBand"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.6",
