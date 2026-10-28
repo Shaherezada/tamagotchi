@@ -1,0 +1,743 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/pets": {
+      "post": {
+        "description": "Питомец появляется яйцом (EGG); живых – не больше трёх",
+        "operationId": "Pets_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Новый питомец",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Уже три живых питомца",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Завести питомца",
+        "tags": [
+          "pets-service"
+        ]
+      },
+      "get": {
+        "description": "status=alive (по умолчанию) – живые, dead – умершие",
+        "operationId": "Pets_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "alive",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/PetStatus"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список питомцев",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PetDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мои питомцы",
+        "tags": [
+          "pets-service"
+        ]
+      }
+    },
+    "/api/pets/{petId}": {
+      "get": {
+        "operationId": "Pets_get",
+        "parameters": [
+          {
+            "name": "petId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Питомец",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Состояние питомца",
+        "tags": [
+          "pets-service"
+        ]
+      },
+      "patch": {
+        "operationId": "Pets_rename",
+        "parameters": [
+          {
+            "name": "petId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenamePetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Питомец с новым именем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Питомец умер",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Переименовать питомца",
+        "tags": [
+          "pets-service"
+        ]
+      }
+    },
+    "/api/pets/{petId}/events": {
+      "get": {
+        "description": "Вылупление, рост, болезни, ошибки ухода, смерть",
+        "operationId": "Pets_history",
+        "parameters": [
+          {
+            "name": "petId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Записи хронологии от новых к старым",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PetEventDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Хронология жизни питомца",
+        "tags": [
+          "pets-service"
+        ]
+      }
+    },
+    "/api/admin/pets/{petId}/time-travel": {
+      "post": {
+        "description": "Только администратор и только при DEMO_MODE=true; питомец сразу проживает gameMinutes",
+        "operationId": "AdminPets_timeTravel",
+        "parameters": [
+          {
+            "name": "petId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeTravelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Состояние после перемотки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет роли admin или выключен DEMO_MODE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Объект не найден или принадлежит другому игроку",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Перемотать время питомца (демо)",
+        "tags": [
+          "pets-service"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "pets-service – питомцы",
+    "description": "Питомцы игрока и их жизнь во времени; перемотка времени для демонстрации. gRPC PetCare – :50051",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "pets-service",
+      "description": "Питомцы игрока и их жизнь во времени; перемотка времени для демонстрации. gRPC PetCare – :50051"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "quantity",
+            "description": "Поле запроса, путь через точку для вложенных"
+          },
+          "message": {
+            "type": "string",
+            "example": "quantity must not be less than 1"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "https://tamagotchi.local/problems/insufficient-funds",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "example": "Недостаточно монет"
+          },
+          "status": {
+            "type": "number",
+            "example": 409
+          },
+          "detail": {
+            "type": "string",
+            "example": "Покупка стоит 30 монет, на счету 12"
+          },
+          "instance": {
+            "type": "string",
+            "example": "/api/purchases"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "c1a7d1f2-6a43-4f0e-9e7d-2b8c1a9d0e11",
+            "description": "Значение заголовка X-Request-Id"
+          },
+          "errors": {
+            "description": "Только у ошибки валидации (400)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "instance",
+          "requestId"
+        ]
+      },
+      "CreatePetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Пушок",
+            "minLength": 1,
+            "maxLength": 24
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "Stage": {
+        "type": "string",
+        "enum": [
+          "EGG",
+          "BABY",
+          "CHILD",
+          "TEEN",
+          "ADULT",
+          "ELDER"
+        ]
+      },
+      "PetFormDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "child_good"
+          },
+          "title": {
+            "type": "string",
+            "example": "Солнышко"
+          },
+          "description": {
+            "type": "string",
+            "example": "Весёлый и послушный ребёнок"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "http://localhost:9000/tamagotchi-media/pet-forms/child_good.png",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "code",
+          "title",
+          "description",
+          "imageUrl"
+        ]
+      },
+      "PetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Пушок"
+          },
+          "stage": {
+            "example": "CHILD",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Stage"
+              }
+            ]
+          },
+          "form": {
+            "$ref": "#/components/schemas/PetFormDto"
+          },
+          "hunger": {
+            "type": "number",
+            "description": "Сытость, сердечки 0–4",
+            "minimum": 0,
+            "maximum": 4,
+            "example": 3
+          },
+          "happiness": {
+            "type": "number",
+            "description": "Настроение, сердечки 0–4",
+            "minimum": 0,
+            "maximum": 4,
+            "example": 2
+          },
+          "discipline": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 50
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 1,
+            "example": 12
+          },
+          "poopCount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4,
+            "example": 1
+          },
+          "isSick": {
+            "type": "boolean"
+          },
+          "isSleeping": {
+            "type": "boolean"
+          },
+          "attention": {
+            "type": "string",
+            "enum": [
+              "HUNGRY",
+              "UNHAPPY",
+              "DIRTY",
+              "SICK",
+              "MISBEHAVING"
+            ],
+            "nullable": true,
+            "description": "Чего питомец требует сейчас"
+          },
+          "careMistakes": {
+            "type": "number",
+            "minimum": 0,
+            "example": 1
+          },
+          "bornAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "diedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "deathCause": {
+            "type": "string",
+            "enum": [
+              "NEGLECT",
+              "OLD_AGE"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "stage",
+          "form",
+          "hunger",
+          "happiness",
+          "discipline",
+          "weight",
+          "poopCount",
+          "isSick",
+          "isSleeping",
+          "attention",
+          "careMistakes",
+          "bornAt",
+          "diedAt",
+          "deathCause"
+        ]
+      },
+      "PetStatus": {
+        "type": "string",
+        "enum": [
+          "alive",
+          "dead"
+        ]
+      },
+      "RenamePetDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Пушок",
+            "minLength": 1,
+            "maxLength": 24
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PetEventDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "EVOLVED",
+            "description": "Тип записи хронологии"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "fromStage": "BABY",
+              "toStage": "CHILD"
+            }
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "type",
+          "details",
+          "occurredAt"
+        ]
+      },
+      "TimeTravelDto": {
+        "type": "object",
+        "properties": {
+          "gameMinutes": {
+            "type": "number",
+            "description": "На сколько игровых минут прожить вперёд",
+            "minimum": 1,
+            "maximum": 14400,
+            "example": 60
+          }
+        },
+        "required": [
+          "gameMinutes"
+        ]
+      }
+    }
+  }
+}

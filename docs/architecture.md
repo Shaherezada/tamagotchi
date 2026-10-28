@@ -62,7 +62,7 @@ API демонстрируется через Swagger UI и Postman.
 
 | Слой | Технология | Опора |
 |---|---|---|
-| Язык, фреймворк | TypeScript, NestJS 12 (монорепозиторий Nest CLI), Node.js 24 LTS | Канев: lab2-nest, lab3-nest, lab4-nest |
+| Язык, фреймворк | TypeScript 6, NestJS 12 (монорепозиторий Nest CLI, сборка tsc, модули CommonJS), Node.js 24 LTS | Канев: lab2-nest, lab3-nest, lab4-nest |
 | ORM и миграции | TypeORM, миграции, `synchronize: false` | lab2-nest, lab3-nest |
 | СУБД | PostgreSQL 18: один сервер, 4 базы, у каждого сервиса своя учётная запись | lab2-nest, git-docker; образец преподавателя |
 | Брокер | RabbitMQ 4 (`amqplib` + `amqp-connection-manager`), management UI | лекция 04; Канев, лекция 13 |
@@ -77,7 +77,7 @@ API демонстрируется через Swagger UI и Postman.
 | Шлюз | nginx | лекция 08 |
 | Устойчивость | `cockatiel`: таймаут, ретрай, circuit breaker | лекция 12 (Polly) |
 | Запуск | Docker Compose, Adminer | Канев: git-docker |
-| Тесты | Jest (правила жизни питомца), e2e-сценарий, коллекция Postman | |
+| Тесты и стиль | Jest (правила жизни питомца), e2e-сценарий, коллекция Postman; ESLint и Prettier | |
 | Наблюдаемость (запас) | OpenTelemetry → Collector → Prometheus, Loki, Tempo → Grafana | лекция 10 |
 
 ## 4. Микросервисы
@@ -214,7 +214,12 @@ message PetSnapshot {
 
 **Топология.** Exchange `tamagotchi.events` типа `topic`, durable. У каждого потребителя своя
 очередь (quorum, `x-delivery-limit: 5`), после пяти неудачных доставок сообщение уходит в
-`tamagotchi.events.dlx` и очередь `<сервис>.events.dlq`.
+`tamagotchi.events.dlx` (тип `direct`, ключ – имя очереди, чтобы недоставленные одного сервиса
+не попали в DLQ другого) и очередь `<сервис>.events.dlq`. RabbitMQ 4 не считает `nack` с возвратом
+неудачной доставкой, поэтому счёт ведёт потребитель по заголовку `x-acquired-count`: после ошибки
+обработчика – повтор через паузу (1 с × номер доставки), пятая неудача – `nack` без возврата, и брокер
+перекладывает сообщение в DLQ; `x-delivery-limit` срабатывает на доставках, оборванных падением
+потребителя. В сервисе на один ключ маршрутизации – один обработчик.
 
 | Очередь | Привязки |
 |---|---|
@@ -343,7 +348,29 @@ stateDiagram-v2
 БД и покрыта unit-тестами: на ней держится вся игровая логика.
 
 Перемотка для демонстрации: `POST /api/admin/pets/{petId}/time-travel {gameMinutes}` сдвигает
-отметки времени питомца назад и сразу прогоняет `simulate`. Работает только при `DEMO_MODE=true`.
+отметки времени питомца назад и сразу прогоняет `simulate`. Работает только при `DEMO_MODE=true`,
+иначе 403; `gameMinutes` – от 1 до 14 400.
+
+**Формы питомца** (справочник `pet_forms`, сид pets-service, `apps/pets-service/src/pets/pet-forms.catalog.ts`;
+картинка – `pet-forms/<код>.png` в Silo). Форма выбирается при переходе на стадию по правилу из таблицы выше:
+`*_good` – ошибок ухода меньше 2, `*_normal` – 2–4, `*_bad` – 5 и больше; `adult_star` – меньше 2 ошибок
+и дисциплина от 50.
+
+| Код | Стадия | Название | Когда |
+|---|---|---|---|
+| `egg` | EGG | Яйцо | новый питомец |
+| `baby` | BABY | Пушинка | всегда |
+| `child_good` | CHILD | Солнышко | ошибок < 2 |
+| `child_normal` | CHILD | Колобок | 2–4 ошибки |
+| `child_bad` | CHILD | Ворчун | 5 и больше |
+| `teen_good` | TEEN | Звёздочка | ошибок < 2 |
+| `teen_normal` | TEEN | Непоседа | 2–4 ошибки |
+| `teen_bad` | TEEN | Хулиган | 5 и больше |
+| `adult_star` | ADULT | Чемпион | ошибок < 2 и дисциплина ≥ 50 |
+| `adult_good` | ADULT | Умница | ошибок < 2, дисциплина < 50 |
+| `adult_normal` | ADULT | Добряк | 2–4 ошибки |
+| `adult_bad` | ADULT | Обжора | 5 и больше |
+| `elder` | ELDER | Мудрец | всегда |
 
 ## 9. Уход за питомцем – распределённая операция
 
@@ -384,6 +411,28 @@ sequenceDiagram
   только без шага с инвентарём.
 - Награда: «играть» даёт 5 монет, только если настроение действительно выросло (защита от фарма).
 
+**Действие и предмет.** FEED – предмет FOOD, SNACK – SNACK, HEAL – MEDICINE (все тратятся), PLAY –
+игрушка TOY (не тратится); CLEAN, SCOLD, LIGHTS_OFF, LIGHTS_ON – без предмета. Предмет другой категории
+или его нет в инвентаре – 409. Эффект (`hunger_delta`, `happiness_delta`, `weight_delta`,
+`cures_sickness`) берётся из предмета и передаётся в gRPC.
+
+**Каталог предметов** (сид care-service, `apps/care-service/src/items/items.catalog.ts`; изменения сид
+не перезаписывает иконку и `is_active`):
+
+| Код | Название | Категория | Цена | Тратится | Сытость | Настроение | Вес | Лечит |
+|---|---|---|---|---|---|---|---|---|
+| `rice` | Рис | FOOD | 5 | да | +1 | 0 | +1 | нет |
+| `fish` | Рыбка | FOOD | 12 | да | +2 | 0 | +1 | нет |
+| `candy` | Конфета | SNACK | 8 | да | 0 | +1 | +3 | нет |
+| `cake` | Пирожное | SNACK | 15 | да | 0 | +2 | +3 | нет |
+| `pill` | Таблетка | MEDICINE | 20 | да | 0 | 0 | 0 | да |
+| `ball` | Мячик | TOY | 30 | нет | 0 | +1 | −1 | нет |
+| `teddy` | Плюшевый мишка | TOY | 60 | нет | 0 | +2 | −1 | нет |
+
+**Стартовый набор и награды** (`apps/care-service/src/events/rewards.ts`): по `user.registered` – кошелёк
+100 монет (STARTER_KIT) и предметы `rice` × 3, `candy` × 2, `pill` × 1, `ball` × 1; по `pet.evolved` –
+50 монет за стадию ADULT и 100 за ELDER (EVOLUTION_REWARD); за игру – 5 монет (PLAY_REWARD).
+
 ## 10. Внешний API
 
 Все запросы идут на `http://localhost:8080`. Кроме входа и регистрации, нужен заголовок
@@ -410,7 +459,7 @@ sequenceDiagram
 | 17 | `PUT /api/items/{itemId}/icon` | админ | загрузить иконку в Silo (multipart `icon`) | 200 `iconUrl` | 400, 401, 403, 404, 413, 415 |
 | 18 | `GET /api/inventory` | игрок | мой инвентарь | 200 | 401 |
 | 19 | `POST /api/purchases` | игрок | купить предмет | 201 покупка, баланс | 400, 401, 404, 409 не хватает монет |
-| 20 | `GET /api/wallet?limit=` | игрок | баланс и журнал операций | 200 | 401 |
+| 20 | `GET /api/wallet?limit=` | игрок | баланс и журнал операций | 200 | 400, 401 |
 | 21 | `POST /api/care-actions` | игрок | действие ухода | 200 действие, питомец | 400, 401, 404, 409, 503 |
 | 22 | `GET /api/care-actions?petId=&limit=` | игрок | история ухода | 200 | 400, 401, 404 |
 | 23 | `GET /api/notifications?unreadOnly=&cursor=` | игрок | уведомления, курсорная пагинация | 200 | 400, 401 |
@@ -419,9 +468,13 @@ sequenceDiagram
 | 26 | `POST /api/notifications/read-all` | игрок | прочитать все | 204 | 401 |
 | 27 | `DELETE /api/notifications/{id}` | игрок | удалить | 204 | 401, 404 |
 | 28 | `GET /api/notifications/stream` | игрок | поток SSE (по желанию) | 200 `text/event-stream` | 401 |
-| 29 | `GET`, `PUT /api/notifications/settings` | игрок | какие уведомления присылать (по желанию) | 200 | 400, 401 |
+| 29 | `GET /api/notifications/settings` | игрок | какие уведомления присылать (по желанию) | 200 | 401 |
+| 30 | `PUT /api/notifications/settings` | игрок | изменить настройки уведомлений (по желанию) | 200 | 400, 401 |
 
 Чужой питомец или чужое уведомление – 404, а не 403: так не раскрывается, что объект существует.
+Неверный UUID в пути – тоже 404 (объекта с таким id нет). Иконка (№ 17) – PNG, JPEG или WebP до 512 КБ.
+Лимиты списков (`limit`) – от 1 до 100, по умолчанию 20. Ответ 501 «Метод ещё не реализован» отдают
+заглушки каркаса, пока сервис не написан.
 
 **Формат ошибки** (RFC 9457, `Content-Type: application/problem+json`), одинаковый во всех сервисах:
 
@@ -444,7 +497,8 @@ sequenceDiagram
 - **JWT RS256.** `users-service` подписывает токен закрытым ключом, остальные проверяют открытым.
   Поля: `sub` (id игрока), `role`, `jti`, `exp` (60 мин). Общий `JwtAuthGuard` и `@Roles()` в `libs/common`.
 - **Выход:** `jti` кладётся в Redis `auth:revoked:<jti>` до истечения токена; guard проверяет ключ.
-- **Пароли:** argon2; правила: 8–64 символа, буквы и цифры.
+- **Пароли:** argon2; правила: 8–64 символа, хотя бы одна буква и одна цифра. Логин – 3–32 символа
+  `[A-Za-z0-9_]`, ник – 1–32 символа.
 - **Валидация:** DTO на `class-validator`, `ValidationPipe({ whitelist, forbidNonWhitelisted, transform })`,
   `ParseUUIDPipe` для id, проверка типа и размера файла.
 - **Ошибки:** глобальный фильтр problem+json, без stack trace и текстов исключений.
@@ -470,27 +524,35 @@ sequenceDiagram
 | `pets-service` | – | HTTP 3000, gRPC 50051 |
 | `care-service` | – | HTTP 3000 |
 | `notifications-service` | – | HTTP 3000 |
-| `postgres` | 5432 | 4 базы, создаются скриптом `db/init/01-databases.sql` |
+| `postgres` | 5432 | 4 базы и учётные записи, создаются скриптом `db/init/01-databases.sh` (пароли из `.env`) |
 | `adminer` | 8081 | просмотр БД (как у Канева) |
 | `rabbitmq` | 5672, 15672 | брокер и management UI |
 | `redis` | 6379 | кэш, отзыв токенов |
 | `silo` | 9000, 9001 | S3 API и консоль |
+| `silo-init` | – | одноразовый: бакет `tamagotchi-media` с публичным чтением (`deploy/silo/init-bucket.sh`) |
 
 Маршруты nginx: `/api/auth`, `/api/users` → users; `/api/pets`, `/api/admin/pets` → pets;
 `/api/items`, `/api/inventory`, `/api/purchases`, `/api/wallet`, `/api/care-actions` → care;
-`/api/notifications` → notifications (для SSE `proxy_buffering off`); `/docs/<сервис>` → Swagger UI.
+`/api/notifications` → notifications (для SSE `proxy_buffering off`); `/docs/<сервис>` → Swagger UI
+(`/docs/users`, `/docs/pets`, `/docs/care`, `/docs/notifications`, JSON – `/docs/<сервис>-json`, список – `/docs`).
+Адреса сервисов nginx разрешает через DNS Docker при запросе, поэтому работает и `--scale`.
 
-Переменные окружения (полный список – `.env.example`): `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`,
-`DB_PASSWORD`, `RABBITMQ_URL`, `REDIS_URL`, `JWT_PUBLIC_KEY_FILE`, `JWT_PRIVATE_KEY_FILE` (только users),
-`PETS_GRPC_URL` (care), `SILO_ENDPOINT`, `SILO_ACCESS_KEY`, `SILO_SECRET_KEY`, `SILO_BUCKET`,
-`GAME_SPEED`, `TICK_MS`, `DEMO_MODE`.
+Переменные окружения (полный список – `.env.example`): `PORT`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`,
+`DB_PASSWORD`, `DB_MIGRATIONS_RUN`, `RABBITMQ_URL`, `REDIS_URL`, `JWT_PUBLIC_KEY_FILE`, `JWT_PRIVATE_KEY_FILE`
+(только users), `ADMIN_LOGIN`, `ADMIN_PASSWORD` (сид users), `PETS_GRPC_URL` (care), `SILO_ENDPOINT`,
+`SILO_ACCESS_KEY`, `SILO_SECRET_KEY` (care), `SILO_BUCKET`, `SILO_PUBLIC_URL` (care, pets), `GRPC_PORT`,
+`GAME_SPEED`, `TICK_MS`, `DEMO_MODE` (pets). Для compose и `db/init`: `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+`RABBITMQ_USER`, `RABBITMQ_PASSWORD`, `<СЕРВИС>_DB_NAME`, `<СЕРВИС>_DB_USER`, `<СЕРВИС>_DB_PASSWORD`
+(USERS, PETS, CARE, NOTIFICATIONS). Окружение проверяется при старте сервиса; при локальном запуске
+`DB_NAME`, `DB_USER`, `DB_PASSWORD` и `PORT` берутся из `<СЕРВИС>_*`, если не заданы. Миграции
+накатываются при старте сервиса, сид – отдельной командой (`seed.js` в сервисе).
 
 ## 14. Структура репозитория и правила для кода
 
 ```
 tamagotchi/
   apps/
-    users-service/        src/auth, src/users, src/outbox, migrations
+    users-service/        src/auth, src/users, migrations (outbox – из libs/common)
     pets-service/         src/pets, src/lifecycle (simulate + планировщик), src/pet-care-grpc, src/admin, migrations
     care-service/         src/items, src/wallet, src/shop, src/inventory, src/care-actions, src/events, migrations
     notifications-service/ src/notifications, src/events, src/stream, migrations
@@ -499,6 +561,8 @@ tamagotchi/
     contracts/            events/*.ts (типы событий), proto/pets.proto
   db/init/                создание 4 баз и учётных записей
   deploy/nginx/           nginx.conf
+  deploy/silo/            создание бакета
+  scripts/                экспорт OpenAPI, ключи RS256
   docs/                   architecture.md, openapi/, diagrams/
   postman/                коллекция и окружение
   docker-compose.yml, .env.example, CLAUDE.md, README.md
@@ -513,7 +577,10 @@ tamagotchi/
 - Комментарии короткие, по-русски, там, где неочевидно «зачем».
 - Итоговое описание API, диаграммы и этот файл должны совпадать с кодом (так требует задание).
 - Имена классов, полей и методов – как в `docs/diagrams/Классы подробно.drawio`; на диаграммах
-  асинхронные методы записаны без `Promise<>`.
+  асинхронные методы записаны без `Promise<>`, у методов контроллеров нет текущего пользователя
+  (в коде – `@CurrentUser()`).
+- У каждого сервиса: `src/main.ts`, `src/migrate.ts`, `src/seed.ts`, `src/database.ts` (сущности и миграции),
+  `src/<сервис>-env.ts` (переменные окружения с проверкой), `src/swagger.ts`; правила работы – `CLAUDE.md`.
 
 ## 15. Связь с лекциями курса
 

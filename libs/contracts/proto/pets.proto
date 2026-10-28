@@ -1,0 +1,39 @@
+syntax = "proto3";
+package pets.v1;
+
+service PetCare {
+  rpc ApplyCareAction (ApplyCareActionRequest) returns (PetSnapshot);
+  rpc GetPetSnapshot (GetPetSnapshotRequest) returns (PetSnapshot);
+}
+
+message ApplyCareActionRequest {
+  string action_id = 1;      // ключ идемпотентности: повтор не применит эффект дважды
+  string pet_id = 2;
+  string owner_id = 3;       // pets-service проверяет владельца
+  string type = 4;           // FEED, SNACK, PLAY, CLEAN, HEAL, SCOLD, LIGHTS_OFF, LIGHTS_ON
+  int32 hunger_delta = 5;
+  int32 happiness_delta = 6;
+  int32 weight_delta = 7;
+  bool cures_sickness = 8;
+}
+
+message GetPetSnapshotRequest {
+  string pet_id = 1;
+  string owner_id = 2;
+}
+
+message PetSnapshot {
+  string pet_id = 1;
+  string name = 2;
+  string stage = 3;
+  string form_code = 4;
+  int32 hunger = 5;
+  int32 happiness = 6;
+  int32 discipline = 7;
+  int32 weight = 8;
+  int32 poop_count = 9;
+  bool is_sick = 10;
+  bool is_sleeping = 11;
+  int32 care_mistakes = 12;
+  bool care_mistake_made = 13; // этим действием допущена ошибка ухода
+}

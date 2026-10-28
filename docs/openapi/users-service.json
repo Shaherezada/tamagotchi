@@ -1,0 +1,525 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/users/me": {
+      "get": {
+        "operationId": "Users_getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Профиль игрока",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мой профиль",
+        "tags": [
+          "users-service"
+        ]
+      },
+      "patch": {
+        "operationId": "Users_updateMe",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Профиль с новым ником",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Сменить ник",
+        "tags": [
+          "users-service"
+        ]
+      }
+    },
+    "/api/users/me/password": {
+      "put": {
+        "description": "Нужен текущий пароль; выданные токены продолжают действовать",
+        "operationId": "Users_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Пароль изменён"
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена или текущий пароль неверен",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Сменить пароль",
+        "tags": [
+          "users-service"
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "description": "Создаёт игрока с ролью player и публикует user.registered: care выдаст 100 монет и стартовый набор",
+        "operationId": "Auth_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Игрок создан, выдан токен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Логин занят",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Регистрация",
+        "tags": [
+          "users-service"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "Auth_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Выдан токен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверный логин или пароль",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Вход",
+        "tags": [
+          "users-service"
+        ],
+        "security": []
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Токен отзывается до истечения срока во всех сервисах",
+        "operationId": "Auth_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Токен отозван"
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен, истёк или отозван",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Выход",
+        "tags": [
+          "users-service"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "users-service – пользователи",
+    "description": "Регистрация, вход и выход, выпуск JWT RS256, профиль игрока",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "users-service",
+      "description": "Регистрация, вход и выход, выпуск JWT RS256, профиль игрока"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "quantity",
+            "description": "Поле запроса, путь через точку для вложенных"
+          },
+          "message": {
+            "type": "string",
+            "example": "quantity must not be less than 1"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "https://tamagotchi.local/problems/insufficient-funds",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "example": "Недостаточно монет"
+          },
+          "status": {
+            "type": "number",
+            "example": 409
+          },
+          "detail": {
+            "type": "string",
+            "example": "Покупка стоит 30 монет, на счету 12"
+          },
+          "instance": {
+            "type": "string",
+            "example": "/api/purchases"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "c1a7d1f2-6a43-4f0e-9e7d-2b8c1a9d0e11",
+            "description": "Значение заголовка X-Request-Id"
+          },
+          "errors": {
+            "description": "Только у ошибки валидации (400)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "instance",
+          "requestId"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "player",
+          "admin"
+        ]
+      },
+      "UserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "login": {
+            "type": "string",
+            "example": "masha"
+          },
+          "nickname": {
+            "type": "string",
+            "example": "Маша"
+          },
+          "role": {
+            "example": "player",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "login",
+          "nickname",
+          "role",
+          "createdAt"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "example": "Мария",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        },
+        "required": [
+          "nickname"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "example": "secret123",
+            "maxLength": 64
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "newSecret456",
+            "minLength": 8,
+            "maxLength": 64,
+            "description": "Хотя бы одна буква и одна цифра"
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "masha",
+            "minLength": 3,
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9_]{3,32}$"
+          },
+          "nickname": {
+            "type": "string",
+            "example": "Маша",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "password": {
+            "type": "string",
+            "example": "secret123",
+            "minLength": 8,
+            "maxLength": 64,
+            "description": "Хотя бы одна буква и одна цифра"
+          }
+        },
+        "required": [
+          "login",
+          "nickname",
+          "password"
+        ]
+      },
+      "AuthTokenDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "3f1c2a4e-8b1d-4c7e-9f2a-5d6b7c8e9f01"
+          },
+          "accessToken": {
+            "type": "string",
+            "description": "JWT RS256 для заголовка Authorization: Bearer",
+            "example": "eyJhbGciOiJSUzI1NiIs…"
+          },
+          "expiresIn": {
+            "type": "number",
+            "description": "Срок жизни токена, секунды",
+            "example": 3600
+          }
+        },
+        "required": [
+          "userId",
+          "accessToken",
+          "expiresIn"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "masha",
+            "maxLength": 32
+          },
+          "password": {
+            "type": "string",
+            "example": "secret123",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "login",
+          "password"
+        ]
+      }
+    }
+  }
+}
