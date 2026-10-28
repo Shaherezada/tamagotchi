@@ -1,4 +1,4 @@
-import { EventEnvelope, PREFETCH, QueueTopology } from '@app/contracts';
+import { type EventEnvelope, PREFETCH, type QueueTopology } from '@app/contracts';
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { AmqpConnectionManager, ChannelWrapper } from 'amqp-connection-manager';

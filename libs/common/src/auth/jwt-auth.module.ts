@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { BaseEnv } from '../config/base-env';
@@ -10,8 +10,10 @@ import { TokenRevocationService } from './token-revocation.service';
 
 /**
  * Проверка доступа во всех сервисах: JwtAuthGuard и RolesGuard глобальны (по умолчанию метод закрыт),
- * открытые методы помечаются @Public(). Подписывает токены только users-service своим JwtModule.
+ * открытые методы помечаются @Public(). TokenRevocationService доступен всем модулям. Подписывает токены
+ * только users-service своим JwtModule.
  */
+@Global()
 @Module({
   imports: [
     RedisModule,
@@ -30,4 +32,4 @@ import { TokenRevocationService } from './token-revocation.service';
   ],
   exports: [TokenRevocationService],
 })
-export class AuthModule {}
+export class JwtAuthModule {}

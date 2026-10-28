@@ -25,10 +25,24 @@ export function buildOpenApiDocument(app: INestApplication, options: SwaggerOpti
     .addTag(options.service, options.description)
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, BEARER_AUTH)
     .build();
-  return SwaggerModule.createDocument(app, config, {
+  const document = SwaggerModule.createDocument(app, config, {
     extraModels: [ProblemDetails, FieldError],
     operationIdFactory: (controllerKey, methodKey) => `${controllerKey.replace(/Controller$/, '')}_${methodKey}`,
   });
+  markPublicOperations(document);
+  return document;
+}
+
+/** Методы без @ApiBearerAuth открыты (@Public()): пустой security говорит это явно. */
+function markPublicOperations(document: OpenAPIObject): void {
+  for (const path of Object.values(document.paths)) {
+    for (const method of ['get', 'put', 'post', 'delete', 'patch'] as const) {
+      const operation = path[method];
+      if (operation && !operation.security) {
+        operation.security = [];
+      }
+    }
+  }
 }
 
 /** Swagger UI сервиса на /docs/<docsName>, JSON – на /docs/<docsName>-json; nginx проксирует их без изменений. */

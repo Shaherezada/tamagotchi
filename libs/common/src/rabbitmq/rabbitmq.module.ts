@@ -1,7 +1,7 @@
 import type { QueueTopology } from '@app/contracts';
 import { DynamicModule, Inject, Injectable, Module, OnApplicationShutdown, Provider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { AmqpConnectionManager, connect } from 'amqp-connection-manager';
+import { type AmqpConnectionManager, connect } from 'amqp-connection-manager';
 import { BaseEnv } from '../config/base-env';
 import { InboxService } from '../inbox/inbox.service';
 import { RabbitConsumer } from './rabbit-consumer';

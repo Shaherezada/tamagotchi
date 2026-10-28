@@ -1,6 +1,6 @@
 export * from './auth/auth.decorators';
-export * from './auth/auth.module';
 export * from './auth/jwt-auth.guard';
+export * from './auth/jwt-auth.module';
 export * from './auth/jwt-user';
 export * from './auth/role.enum';
 export * from './auth/roles.guard';

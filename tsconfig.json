@@ -4,7 +4,7 @@
     "moduleResolution": "nodenext",
     "target": "ES2023",
     "lib": ["ES2024"],
-    "types": ["node", "jest"],
+    "types": ["node", "jest", "multer"],
     "declaration": false,
     "removeComments": true,
     "emitDecoratorMetadata": true,
