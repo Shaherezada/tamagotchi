@@ -737,14 +737,17 @@ model('PetDto', ['+ id: string', '+ name: string', '+ stage: Stage', '+ form: Pe
                  '+ deathCause: DeathCause | null'])
 model('PetFormDto', ['+ code: string', '+ title: string', '+ description: string', '+ imageUrl: string'])
 model('PetEventDto', ['+ type: string', '+ details: object', '+ occurredAt: Date'])
-model('PetsService', ['- pets: Repository<Pet>', '- forms: Repository<PetForm>', '- events: Repository<PetEvent>'],
+model('PetsService', ['- pets: Repository<Pet>', '- forms: Repository<PetForm>', '- events: Repository<PetEvent>',
+                      '- env: PetsEnv'],
       ['+ create(ownerId: string, CreatePetDto): PetDto',
        '+ list(ownerId: string, PetsQuery): PetDto[]',
        '+ get(ownerId: string, petId: string): PetDto',
        '+ rename(ownerId: string, petId: string, RenamePetDto): PetDto',
        '+ history(ownerId: string, petId: string): PetEventDto[]'])
-model('LifecycleScheduler', ['- lifecycle: LifecycleService'], ['+ tick(): void'])
-model('LifecycleService', ['- dataSource: DataSource', '- outbox: OutboxService', '- rules: GameRules'],
+model('LifecycleScheduler', ['- lifecycle: LifecycleService', '- env: PetsEnv', '- registry: SchedulerRegistry'],
+      ['+ tick(): void'])
+model('LifecycleService', ['- dataSource: DataSource', '- outbox: OutboxService', '- rules: GameRules',
+                           '- env: PetsEnv'],
       ['+ processDue(limit: number): number',
        '+ timeTravel(petId: string, minutes: number): PetDto'])
 model('Simulation', [], ['+ simulate(Pet, now: Date, GameRules, Rng): SimulationResult'], stereotype='utility')
@@ -754,7 +757,7 @@ model('GameRules', ['+ gameSpeed: number', '+ stageMinutes: Record<Stage, number
 model('PetCareGrpcController', ['- care: PetCareService'],
       ['+ applyCareAction(ApplyCareActionRequest): PetSnapshot',
        '+ getPetSnapshot(GetPetSnapshotRequest): PetSnapshot'])
-model('PetCareService', ['- dataSource: DataSource', '- rules: GameRules'],
+model('PetCareService', ['- dataSource: DataSource', '- outbox: OutboxService', '- rules: GameRules'],
       ['+ apply(ApplyCareActionRequest): PetSnapshot',
        '+ snapshot(GetPetSnapshotRequest): PetSnapshot'])
 model('CareRules', [], ['+ applyCare(Pet, ApplyCareActionRequest, now: Date): CareOutcome'], stereotype='utility')
@@ -804,7 +807,7 @@ model('WalletService', ['- wallets: Repository<Wallet>', '- journal: Repository<
       ['+ get(userId: string, limit: number): WalletDto',
        '+ credit(EntityManager, WalletChange): number',
        '+ debit(EntityManager, WalletChange): number'])
-model('InventoryService', ['- inventory: Repository<InventoryItem>'],
+model('InventoryService', ['- inventory: Repository<InventoryItem>', '- icons: IconStorage'],
       ['+ list(userId: string): InventoryItemDto[]', '+ add(EntityManager, InventoryChange): void',
        '+ take(EntityManager, InventoryChange): void'])
 model('PurchaseDto', ['+ itemId: string', '+ quantity: number'])
@@ -829,7 +832,7 @@ model('CareActionsService', ['- dataSource: DataSource', '- inventory: Inventory
 model('CareActionRetrier', ['- careActions: CareActionsService', '- actions: Repository<CareAction>'],
       ['+ retryPending(): void'])
 model('PetCareClient', ['- client: ClientGrpc', '- policy: IPolicy'],
-      ['+ apply(ApplyCareActionRequest): PetSnapshot'])
+      ['+ apply(ApplyCareActionRequest): PetSnapshot', '+ snapshot(GetPetSnapshotRequest): PetSnapshot'])
 model('CreateCareActionDto', ['+ petId: string', '+ type: CareType', '+ itemId?: string'])
 model('CareActionDto', ['+ id: string', '+ petId: string', '+ type: CareType', '+ itemId: string | null',
                         '+ status: CareStatus', '+ rejectReason: string | null', '+ createdAt: Date'])
@@ -861,7 +864,7 @@ model('NotificationsController', ['- notifications: NotificationsService', '- no
        '+ readAll(): void', '+ remove(id: string): void',
        '+ stream(): Observable<MessageEvent>', '+ getSettings(): SettingsDto',
        '+ updateSettings(SettingsDto): SettingsDto'])
-model('NotificationsService', ['- notifications: Repository<Notification>',
+model('NotificationsService', ['- dataSource: DataSource', '- notifications: Repository<Notification>',
                                '- settings: Repository<NotificationSettings>', '- stream: NotificationStream'],
       ['+ list(userId: string, NotificationsQuery): NotificationPageDto',
        '+ unreadCount(userId: string): UnreadCountDto',
@@ -1318,7 +1321,7 @@ def pets_lifecycle_page():
     x_dto = 264
     ref_class(page, 'PetDto', x_dto, 19)
     uml_class(page, 'LifecycleScheduler', WIDTH - 1 - class_size('LifecycleScheduler')[0], 1)
-    uml_class(page, 'AdminPetsController', 1, bottom_edge(page, 'TimeTravelDto') + GAP)
+    uml_class(page, 'AdminPetsController', 1, bottom_edge(page, 'LifecycleScheduler') + GAP)
     vline(page, DEP, 'AdminPetsController', 'TimeTravelDto', 100)
     vline(page, DEP, 'AdminPetsController', 'PetDto', x_dto + ref_width('PetDto') / 2)
     uml_class(page, 'LifecycleService', 1, bottom_edge(page, 'AdminPetsController') + GAP)
@@ -1776,7 +1779,7 @@ def pets_page():
     y = cy + ch + GAP
     ref_class(page, 'LifecycleScheduler', 1, y)
     ref_class(page, 'AdminPetsController', 213, y)
-    uml_class(page, 'LifecycleService', 1, y + HEAD + GAP)
+    uml_class(page, 'LifecycleService', 1, y + HEAD + GAP - 10)  # короткие стрелки: иначе лист выше 900
     lx, ly, lw, lh = box(page, 'LifecycleService')
     vline(page, ASSOC, 'LifecycleScheduler', 'LifecycleService', 87)
     vline(page, ASSOC, 'AdminPetsController', 'LifecycleService', 306)
