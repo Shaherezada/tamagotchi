@@ -16,6 +16,6 @@ import { ItemsService } from './items.service';
     IconStorage,
     { provide: SILO_CLIENT, inject: [CareEnv], useFactory: createSiloClient },
   ],
-  exports: [TypeOrmModule, ItemsService],
+  exports: [TypeOrmModule, ItemsService, IconStorage],
 })
 export class ItemsModule {}
