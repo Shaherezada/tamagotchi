@@ -46,3 +46,40 @@ export const PET_FORMS: PetFormSeed[] = [
 export function petFormImageKey(code: string): string {
   return `pet-forms/${code}.png`;
 }
+
+export const EGG_FORM = 'egg';
+/** Хорошая форма – ошибок меньше; плохая – от BAD_FORM_MISTAKES; лучшая взрослая – ещё и дисциплина. */
+export const GOOD_FORM_MAX_MISTAKES = 1;
+export const BAD_FORM_MISTAKES = 5;
+export const STAR_FORM_DISCIPLINE = 50;
+
+/** Код формы при переходе на стадию (§8, таблица форм). */
+export function chooseFormCode(stage: Stage, careMistakes: number, discipline: number): string {
+  switch (stage) {
+    case Stage.EGG:
+      return EGG_FORM;
+    case Stage.BABY:
+      return 'baby';
+    case Stage.ELDER:
+      return 'elder';
+    default: {
+      const prefix = stage.toLowerCase();
+      if (careMistakes >= BAD_FORM_MISTAKES) {
+        return `${prefix}_bad`;
+      }
+      if (careMistakes > GOOD_FORM_MAX_MISTAKES) {
+        return `${prefix}_normal`;
+      }
+      return stage === Stage.ADULT && discipline >= STAR_FORM_DISCIPLINE ? 'adult_star' : `${prefix}_good`;
+    }
+  }
+}
+
+/** Форма из справочника по коду: та же строка, что сид кладёт в pet_forms. */
+export function petFormByCode(code: string): PetFormSeed & { imageKey: string } {
+  const form = PET_FORMS.find((f) => f.code === code);
+  if (!form) {
+    throw new Error(`Неизвестная форма питомца ${code}`);
+  }
+  return { ...form, imageKey: petFormImageKey(code) };
+}

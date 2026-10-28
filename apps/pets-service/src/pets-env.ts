@@ -1,7 +1,7 @@
 import { BaseEnv, ToBoolean } from '@app/common';
 import { PETS_GRPC_PORT } from '@app/contracts';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsNotEmpty, IsNumber, IsString, Matches, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 
 export const PETS_ENV_PREFIX = 'PETS';
 
@@ -37,4 +37,17 @@ export class PetsEnv extends BaseEnv {
   @IsString()
   @IsNotEmpty()
   SILO_BUCKET: string = 'tamagotchi-media';
+
+  /** S3 API Silo – только для сида (загрузка картинок форм); сервису не нужен. */
+  @IsOptional()
+  @Matches(/^https?:\/\/\S+$/, { message: 'SILO_ENDPOINT должен начинаться с http:// или https://' })
+  SILO_ENDPOINT?: string;
+
+  @IsOptional()
+  @IsString()
+  SILO_ACCESS_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  SILO_SECRET_KEY?: string;
 }
