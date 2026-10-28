@@ -1,6 +1,12 @@
-import { type ApplyCareActionRequest, PET_CARE_SERVICE, type PetCare, type PetSnapshot } from '@app/contracts';
+import {
+  type ApplyCareActionRequest,
+  type GetPetSnapshotRequest,
+  PET_CARE_SERVICE,
+  type PetCare,
+  type PetSnapshot,
+} from '@app/contracts';
 import { status as GrpcStatus } from '@grpc/grpc-js';
-import { Inject, Injectable, NotImplementedException, OnModuleInit } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import type { ClientGrpc } from '@nestjs/microservices';
 import {
   circuitBreaker,
@@ -14,6 +20,7 @@ import {
   TimeoutStrategy,
   wrap,
 } from 'cockatiel';
+import { fromEvent, lastValueFrom, Observable, takeUntil } from 'rxjs';
 
 export const PETS_GRPC_CLIENT = Symbol('PETS_GRPC_CLIENT');
 
@@ -45,7 +52,50 @@ export class PetCareClient implements OnModuleInit {
     this.pets = this.client.getService<PetCare>(PET_CARE_SERVICE);
   }
 
-  apply(_request: ApplyCareActionRequest): Promise<PetSnapshot> {
-    throw new NotImplementedException();
+  apply(request: ApplyCareActionRequest): Promise<PetSnapshot> {
+    return this.call((pets) => pets.applyCareAction(request));
   }
+
+  /** Состояние без изменений: настроение до игры (награда) и проверка владельца в истории ухода. */
+  snapshot(request: GetPetSnapshotRequest): Promise<PetSnapshot> {
+    return this.call((pets) => pets.getPetSnapshot(request));
+  }
+
+  // таймаут политики отменяет попытку через signal – отписка обрывает вызов gRPC
+  private call(rpc: (pets: PetCare) => Observable<PetSnapshot>): Promise<PetSnapshot> {
+    return this.policy.execute(({ signal }) =>
+      lastValueFrom(rpc(this.pets).pipe(takeUntil(fromEvent(signal, 'abort')))),
+    );
+  }
+}
+
+/** Окончательный отказ pets-service: предмет возвращается, действие REJECTED. */
+export interface PetCareRejection {
+  status: HttpStatus.NOT_FOUND | HttpStatus.CONFLICT;
+  /** Код для care_actions.reject_reason, не длиннее 32 символов. */
+  reason: string;
+  detail: string;
+}
+
+const REASON_PATTERN = /^[A-Z][A-Z0-9_]{1,31}$/;
+
+/**
+ * Ошибка вызова PetCare → отказ (§5: NOT_FOUND – 404, FAILED_PRECONDITION – 409) или null,
+ * если pets-service недоступен (таймаут, UNAVAILABLE, разомкнутый breaker и прочее) – тогда 503 и повтор.
+ */
+export function toPetCareRejection(error: unknown): PetCareRejection | null {
+  const { code, details } = (error ?? {}) as { code?: number; details?: string };
+  // pets-service может передать в details машинный код причины, например PET_SLEEPING
+  const reason = details && REASON_PATTERN.test(details) ? details : undefined;
+  if (code === GrpcStatus.NOT_FOUND) {
+    return { status: HttpStatus.NOT_FOUND, reason: reason ?? 'PET_NOT_FOUND', detail: 'Питомец не найден' };
+  }
+  if (code === GrpcStatus.FAILED_PRECONDITION) {
+    return {
+      status: HttpStatus.CONFLICT,
+      reason: reason ?? 'PET_UNAVAILABLE',
+      detail: reason ? `Питомец сейчас не может принять уход: ${reason}` : details || 'Питомец спит, ещё яйцо или умер',
+    };
+  }
+  return null;
 }

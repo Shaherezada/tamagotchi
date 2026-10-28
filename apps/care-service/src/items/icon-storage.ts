@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotImplementedException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Client } from 'minio';
 import { CareEnv } from '../care-env';
 
@@ -27,11 +27,12 @@ export class IconStorage {
     this.bucket = env.SILO_BUCKET;
   }
 
-  put(_key: string, _content: Buffer, _type: string): Promise<void> {
-    throw new NotImplementedException();
+  async put(key: string, content: Buffer, type: string): Promise<void> {
+    await this.client.putObject(this.bucket, key, content, content.length, { 'Content-Type': type });
   }
 
-  url(_key: string): string {
-    throw new NotImplementedException();
+  /** Публичная ссылка: бакет открыт на чтение (deploy/silo/init-bucket.sh). */
+  url(key: string): string {
+    return `${this.env.SILO_PUBLIC_URL.replace(/\/+$/, '')}/${this.bucket}/${key}`;
   }
 }
