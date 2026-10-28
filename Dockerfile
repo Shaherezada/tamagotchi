@@ -6,8 +6,9 @@ FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 # за прокси с подменой TLS: docker build --secret id=ca,src=<корневой сертификат прокси> ...
+# (в compose – BUILD_CA_FILE в .env); пустой файл – сертификат не нужен
 RUN --mount=type=secret,id=ca,required=false \
-    if [ -f /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi; npm ci
+    if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi; npm ci
 COPY nest-cli.json tsconfig.json tsconfig.build.json ./
 COPY libs ./libs
 COPY apps ./apps

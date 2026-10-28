@@ -58,6 +58,8 @@ services:
       context: .
       args:
         SERVICE: users-service
+      secrets:
+        - ca
     environment:
       <<: *app-env
       DB_NAME: ${USERS_DB_NAME}
@@ -80,6 +82,8 @@ services:
       context: .
       args:
         SERVICE: pets-service
+      secrets:
+        - ca
     environment:
       <<: *app-env
       DB_NAME: ${PETS_DB_NAME}
@@ -89,10 +93,18 @@ services:
       GAME_SPEED: ${GAME_SPEED}
       TICK_MS: ${TICK_MS}
       DEMO_MODE: ${DEMO_MODE}
+      # S3 API Silo – для сида картинок форм
+      SILO_ENDPOINT: http://silo:9000
+      SILO_ACCESS_KEY: ${SILO_ACCESS_KEY}
+      SILO_SECRET_KEY: ${SILO_SECRET_KEY}
       SILO_PUBLIC_URL: ${SILO_PUBLIC_URL}
       SILO_BUCKET: ${SILO_BUCKET}
     secrets:
       - jwt-public
+    depends_on:
+      <<: *app-depends
+      silo-init:
+        condition: service_completed_successfully
     healthcheck:
       <<: *app-healthcheck
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/docs/pets-json"]
@@ -104,6 +116,8 @@ services:
       context: .
       args:
         SERVICE: care-service
+      secrets:
+        - ca
     environment:
       <<: *app-env
       DB_NAME: ${CARE_DB_NAME}
@@ -134,6 +148,8 @@ services:
       context: .
       args:
         SERVICE: notifications-service
+      secrets:
+        - ca
     environment:
       <<: *app-env
       DB_NAME: ${NOTIFICATIONS_DB_NAME}
@@ -257,6 +273,9 @@ services:
     restart: "no"
 
 secrets:
+  # корневой сертификат для npm ci при сборке за прокси с подменой TLS; по умолчанию пустой файл
+  ca:
+    file: ${BUILD_CA_FILE:-./deploy/build/no-extra-ca.crt}
   jwt-public:
     file: ./secrets/jwt-public.pem
   jwt-private:

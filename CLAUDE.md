@@ -80,7 +80,7 @@ docker compose up -d postgres rabbitmq redis silo silo-init
 | Unit-тесты | `npm test` (Jest с `--experimental-vm-modules`: NestJS 12 – ESM-пакеты) |
 | Сервис локально (watch) | `npm run start:users` и т. д.; порты – `USERS_PORT`… из `.env` (3001–3004) |
 | Миграции | накатываются при старте (`DB_MIGRATIONS_RUN=true`); вручную после сборки – `npm run migration:users` и т. д. |
-| Сид | после сборки `npm run seed:users` / `seed:pets` / `seed:care`; в Docker – `docker compose exec users-service node dist/apps/users-service/src/seed.js` |
+| Сид | только после первого старта сервиса (миграции накатываются при старте). Локально после сборки – `npm run seed:users` / `seed:pets` / `seed:care` (файл `dist/apps/<сервис>/apps/<сервис>/src/seed.js`); в Docker образ кладёт `dist/apps/<сервис>` в `/app/dist`, поэтому – `docker compose exec users-service node dist/apps/users-service/src/seed.js` |
 | OpenAPI своего сервиса | `npm run build:users && node scripts/export-openapi.js users-service` → `docs/openapi/users-service.json` |
 | Swagger UI | `http://localhost:8080/docs/<users\|pets\|care\|notifications>` через nginx, локально – `http://localhost:<порт>/docs/<сервис>` |
 | Ключи JWT | `npm run keys` → `secrets/jwt-*.pem` (папка в `.gitignore`) |
