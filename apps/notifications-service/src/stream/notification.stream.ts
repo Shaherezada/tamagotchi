@@ -1,5 +1,5 @@
-import { Injectable, type MessageEvent, NotImplementedException } from '@nestjs/common';
-import type { Observable, Subject } from 'rxjs';
+import { Injectable, type MessageEvent } from '@nestjs/common';
+import { Observable, Subject } from 'rxjs';
 import type { NotificationDto } from '../notifications/dto/notification.dto';
 
 /** Живой поток уведомлений SSE: свой Subject на каждого подключённого игрока этого экземпляра. */
@@ -7,11 +7,25 @@ import type { NotificationDto } from '../notifications/dto/notification.dto';
 export class NotificationStream {
   private readonly streams = new Map<string, Subject<MessageEvent>>();
 
-  subscribe(_userId: string): Observable<MessageEvent> {
-    throw new NotImplementedException();
+  subscribe(userId: string): Observable<MessageEvent> {
+    return new Observable<MessageEvent>((subscriber) => {
+      let subject = this.streams.get(userId);
+      if (!subject) {
+        subject = new Subject<MessageEvent>();
+        this.streams.set(userId, subject);
+      }
+      const subscription = subject.subscribe(subscriber);
+      return () => {
+        subscription.unsubscribe();
+        // последнее соединение игрока закрыто – Subject больше не нужен
+        if (!subject.observed) {
+          this.streams.delete(userId);
+        }
+      };
+    });
   }
 
-  push(_userId: string, _notification: NotificationDto): void {
-    throw new NotImplementedException();
+  push(userId: string, notification: NotificationDto): void {
+    this.streams.get(userId)?.next({ type: 'notification', id: notification.id, data: notification });
   }
 }
