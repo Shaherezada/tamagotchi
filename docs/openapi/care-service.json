@@ -574,7 +574,7 @@
             }
           },
           "400": {
-            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "description": "Неверные данные; предмет не нужен или не указан; pets-service отклонил тип действия",
             "content": {
               "application/problem+json": {
                 "schema": {

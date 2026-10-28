@@ -1306,7 +1306,7 @@
             }
           },
           "400": {
-            "description": "Ошибка валидации: неверные поля перечислены в errors[]",
+            "description": "Неверные данные; предмет не нужен или не указан; pets-service отклонил тип действия",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2246,13 +2246,33 @@
           "name"
         ]
       },
+      "PetEventType": {
+        "type": "string",
+        "enum": [
+          "BORN",
+          "EVOLVED",
+          "HUNGRY",
+          "UNHAPPY",
+          "DIRTY",
+          "SICK",
+          "MISBEHAVING",
+          "CARE",
+          "CARE_MISTAKE",
+          "DIED"
+        ],
+        "description": "Тип записи хронологии: HUNGRY…MISBEHAVING – начало зова, CARE – уход, CARE_MISTAKE – ошибка ухода"
+      },
       "PetEventDto": {
         "type": "object",
         "properties": {
           "type": {
-            "type": "string",
             "example": "EVOLVED",
-            "description": "Тип записи хронологии"
+            "description": "Тип записи хронологии: HUNGRY…MISBEHAVING – начало зова, CARE – уход, CARE_MISTAKE – ошибка ухода",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PetEventType"
+              }
+            ]
           },
           "details": {
             "type": "object",
