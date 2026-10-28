@@ -1,0 +1,1604 @@
+{
+  "info": {
+    "_postman_id": "6f1d0c1a-3b2e-4c5d-8e9f-0a1b2c3d4e5f",
+    "name": "Тамагочи – сценарий демо",
+    "description": "Сценарий защиты курсового проекта: 10 шагов, как в `npm run test:e2e`. Все запросы – через nginx (`baseUrl`). Перед запуском: `docker compose up -d`, сид трёх сервисов, импорт окружения `tamagotchi.postman_environment.json`. Шаг 7 требует остановить и запустить pets-service вручную.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Регистрация и стартовый набор",
+      "description": "Регистрация публикует `user.registered` через outbox; care-service создаёт кошелёк на 100 монет и стартовый набор, notifications-service – приветствие. Логин игрока каждый раз новый, поэтому коллекцию можно прогонять повторно.",
+      "item": [
+        {
+          "name": "Вход администратора",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Вход админа из `.env` (`ADMIN_LOGIN`, `ADMIN_PASSWORD`; создаётся сидом users-service). Токен – в `adminToken`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{adminLogin}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('adminToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Регистрация игрока",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Новый игрок с уникальным логином. Токен и id сохраняются в `playerToken`, `playerId`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{playerLogin}}\",\n  \"nickname\": \"Тестер\",\n  \"password\": \"{{playerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('playerLogin', 'player_' + Date.now().toString(36));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('playerToken', body.accessToken);",
+                  "pm.environment.set('playerId', body.userId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "RabbitMQ: публикации в tamagotchi.events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{rabbitUrl}}/api/exchanges/%2F/tamagotchi.events",
+              "host": [
+                "{{rabbitUrl}}"
+              ],
+              "path": [
+                "api",
+                "exchanges",
+                "%2F",
+                "tamagotchi.events"
+              ]
+            },
+            "description": "Management API RabbitMQ: счётчик публикаций в exchange событий больше нуля – `user.registered` ушло в брокер. Сами сообщения видны в UI http://localhost:15672 (очереди `care-service.events`, `notifications-service.events`).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// пауза между попытками опроса",
+                  "if (Number(pm.collectionVariables.get('pollTries') || 0) > 0) { setTimeout(() => {}, 2000); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.test('В exchange есть публикации', () => pm.expect(pm.response.json().message_stats.publish_in).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Кошелёк: 100 монет",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "wallet"
+              ]
+            },
+            "description": "Стартовый кошелёк. Событие обрабатывается асинхронно: запрос повторяется, пока баланс не станет 100.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// пауза между попытками опроса",
+                  "if (Number(pm.collectionVariables.get('pollTries') || 0) > 0) { setTimeout(() => {}, 2000); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ok = (() => { try { return pm.response.json().balance === 100; } catch (e) { return false; } })();",
+                  "const tries = Number(pm.collectionVariables.get('pollTries') || 0);",
+                  "if (!ok && tries < 30) {",
+                  "  pm.collectionVariables.set('pollTries', tries + 1);",
+                  "  pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "  pm.collectionVariables.set('pollTries', 0);",
+                  "  pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Баланс 100 монет', () => pm.expect(ok, 'не дождались за 30 попыток').to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Инвентарь: стартовый набор",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "description": "Рис × 3, конфета × 2, таблетка × 1, мячик × 1. id предметов сохраняются в переменные.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "const q = Object.fromEntries(rows.map((r) => [r.item.code, r.quantity]));",
+                  "pm.test('Стартовый набор', () => pm.expect(q).to.eql({ rice: 3, candy: 2, pill: 1, ball: 1 }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Приветственное уведомление",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Уведомление WELCOME от notifications-service.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// пауза между попытками опроса",
+                  "if (Number(pm.collectionVariables.get('pollTries') || 0) > 0) { setTimeout(() => {}, 2000); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ok = (() => { try { return pm.response.json().items.some((n) => n.type === 'WELCOME'); } catch (e) { return false; } })();",
+                  "const tries = Number(pm.collectionVariables.get('pollTries') || 0);",
+                  "if (!ok && tries < 30) {",
+                  "  pm.collectionVariables.set('pollTries', tries + 1);",
+                  "  pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "  pm.collectionVariables.set('pollTries', 0);",
+                  "  pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Есть уведомление WELCOME', () => pm.expect(ok, 'не дождались за 30 попыток').to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Завести питомца",
+      "description": "Новый питомец – яйцо (стадия EGG).",
+      "item": [
+        {
+          "name": "Каталог предметов",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "description": "Открытый метод. id предметов сохраняются в `riceId`, `fishId`, `candyId`, `teddyId`.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const items = Object.fromEntries(pm.response.json().map((i) => [i.code, i.id]));",
+                  "['rice', 'fish', 'candy', 'teddy'].forEach((code) => pm.environment.set(code + 'Id', items[code]));",
+                  "pm.test('В каталоге 7 предметов сида', () => pm.expect(Object.keys(items)).to.include.members(['rice', 'fish', 'candy', 'pill', 'ball', 'teddy', 'cake']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Завести питомца",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pets"
+              ]
+            },
+            "description": "Питомец появляется яйцом; id – в `petId`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Пушок\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 201', () => pm.response.to.have.status(201));",
+                  "const pet = pm.response.json();",
+                  "pm.environment.set('petId', pet.id);",
+                  "pm.test('Стадия EGG', () => pm.expect(pet.stage).to.eql('EGG'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Перемотка: яйцо вылупилось",
+      "description": "Админ перематывает время питомца на 5 игровых минут (работает при `DEMO_MODE=true`): яйцо становится BABY, pets-service публикует `pet.evolved`, приходит уведомление «Питомец вырос».",
+      "item": [
+        {
+          "name": "Перемотка на 5 минут",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pets/{{petId}}/time-travel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "pets",
+                "{{petId}}",
+                "time-travel"
+              ]
+            },
+            "description": "Только роль admin.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gameMinutes\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Стадия BABY', () => pm.expect(pm.response.json().stage).to.eql('BABY'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Уведомление «вырос»",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Уведомление PET_EVOLVED по этому питомцу.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// пауза между попытками опроса",
+                  "if (Number(pm.collectionVariables.get('pollTries') || 0) > 0) { setTimeout(() => {}, 2000); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ok = (() => { try { return pm.response.json().items.some((n) => n.type === 'PET_EVOLVED' && n.petId === pm.environment.get('petId')); } catch (e) { return false; } })();",
+                  "const tries = Number(pm.collectionVariables.get('pollTries') || 0);",
+                  "if (!ok && tries < 30) {",
+                  "  pm.collectionVariables.set('pollTries', tries + 1);",
+                  "  pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "  pm.collectionVariables.set('pollTries', 0);",
+                  "  pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Есть уведомление PET_EVOLVED', () => pm.expect(ok, 'не дождались за 30 попыток').to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Перемотка до голода",
+      "description": "Сытость падает на сердечко раз в 30 игровых минут от рождения: через 120 минут после рождения она 0, зов HUNGRY, событие `pet.hungry`. Живой поток: откройте «Поток уведомлений SSE» в отдельной вкладке до перемотки (Postman показывает события SSE) или в терминале `curl -N -H \"Authorization: Bearer <токен>\" http://localhost:8080/api/notifications/stream`.",
+      "item": [
+        {
+          "name": "Поток уведомлений SSE",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "stream"
+              ]
+            },
+            "description": "Поток `text/event-stream` (событие `notification`). При прогоне в Newman пропускается (`skipSse=true`): поток не заканчивается.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('skipSse') === 'true') { pm.execution.skipRequest(); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Перемотка на 120 минут",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/pets/{{petId}}/time-travel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "pets",
+                "{{petId}}",
+                "time-travel"
+              ]
+            },
+            "description": "Сытость 0, зов HUNGRY.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gameMinutes\": 120\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const pet = pm.response.json();",
+                  "pm.test('Сытость 0, зов HUNGRY', () => { pm.expect(pet.hunger).to.eql(0); pm.expect(pet.attention).to.eql('HUNGRY'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Уведомление «голоден»",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Уведомление PET_HUNGRY в списке.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// пауза между попытками опроса",
+                  "if (Number(pm.collectionVariables.get('pollTries') || 0) > 0) { setTimeout(() => {}, 2000); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ok = (() => { try { return pm.response.json().items.some((n) => n.type === 'PET_HUNGRY' && n.petId === pm.environment.get('petId')); } catch (e) { return false; } })();",
+                  "const tries = Number(pm.collectionVariables.get('pollTries') || 0);",
+                  "if (!ok && tries < 30) {",
+                  "  pm.collectionVariables.set('pollTries', tries + 1);",
+                  "  pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "  pm.collectionVariables.set('pollTries', 0);",
+                  "  pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Есть уведомление PET_HUNGRY', () => pm.expect(ok, 'не дождались за 30 попыток').to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Покормить рисом",
+      "description": "Сага ухода: рис списывается из инвентаря в care_db, эффект (+1 сытость из предмета) применяет pets-service по gRPC.",
+      "item": [
+        {
+          "name": "Покормить рисом",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/care-actions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "care-actions"
+              ]
+            },
+            "description": "Действие FEED с рисом.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"type\": \"FEED\",\n  \"itemId\": \"{{riceId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('Действие APPLIED, сытость 1', () => { pm.expect(r.action.status).to.eql('APPLIED'); pm.expect(r.pet.hunger).to.eql(1); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Инвентарь: риса на один меньше",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "inventory"
+              ]
+            },
+            "description": "Риса осталось 2.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const rice = pm.response.json().find((r) => r.item.code === 'rice');",
+                  "pm.test('Риса 2', () => pm.expect(rice.quantity).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Покормить сытого – ошибка ухода",
+      "description": "Докупаем две рыбки (+2 сытости каждая), кормим до 4 сердечек и кормим ещё раз: ошибка ухода OVERFED, `careMistakeMade = true`, счётчик ошибок растёт.",
+      "item": [
+        {
+          "name": "Купить 2 рыбки",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/purchases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "purchases"
+              ]
+            },
+            "description": "Покупка – одна транзакция: кошелёк FOR UPDATE, журнал, инвентарь, покупка.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": \"{{fishId}}\",\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Баланс 76', () => pm.expect(pm.response.json().balance).to.eql(76));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покормить рыбкой (1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/care-actions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "care-actions"
+              ]
+            },
+            "description": "Сытость 1 → 3.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"type\": \"FEED\",\n  \"itemId\": \"{{fishId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покормить рыбкой (2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/care-actions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "care-actions"
+              ]
+            },
+            "description": "Сытость 3 → 4.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"type\": \"FEED\",\n  \"itemId\": \"{{fishId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Сытость 4', () => pm.expect(pm.response.json().pet.hunger).to.eql(4));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покормить сытого",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/care-actions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "care-actions"
+              ]
+            },
+            "description": "Ошибка ухода OVERFED.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"type\": \"FEED\",\n  \"itemId\": \"{{riceId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Ошибка ухода', () => pm.expect(pm.response.json().pet.careMistakeMade).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. pets-service недоступен – досылка",
+      "description": "Перед запросом «Угостить при остановленном pets-service» выполните `docker compose stop pets-service`: care-service отвечает 503, действие остаётся PENDING, конфета уже списана. Затем `docker compose start pets-service` – фоновая досылка (раз в 30 с) проводит действие с тем же actionId.",
+      "item": [
+        {
+          "name": "Угостить при остановленном pets-service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/care-actions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "care-actions"
+              ]
+            },
+            "description": "Ожидается 503 problem+json `pets-unavailable`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"petId\": \"{{petId}}\",\n  \"type\": \"SNACK\",\n  \"itemId\": \"{{candyId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 503', () => pm.response.to.have.status(503));",
+                  "pm.test('problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Действие в PENDING",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/care-actions?limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "care-actions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Последнее действие – PENDING; id – в `careActionId`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const a = pm.response.json()[0];",
+                  "pm.environment.set('careActionId', a.id);",
+                  "pm.test('PENDING', () => pm.expect(a.status).to.eql('PENDING'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Досылка провела действие",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/care-actions?limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "care-actions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "После `docker compose start pets-service`. Запрос повторяется, пока действие не станет APPLIED (до 60 попыток по 2 с).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// пауза между попытками опроса",
+                  "if (Number(pm.collectionVariables.get('pollTries') || 0) > 0) { setTimeout(() => {}, 2000); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ok = (() => { try { return pm.response.json().some((a) => a.id === pm.environment.get('careActionId') && a.status === 'APPLIED'); } catch (e) { return false; } })();",
+                  "const tries = Number(pm.collectionVariables.get('pollTries') || 0);",
+                  "if (!ok && tries < 60) {",
+                  "  pm.collectionVariables.set('pollTries', tries + 1);",
+                  "  pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "  pm.collectionVariables.set('pollTries', 0);",
+                  "  pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "  pm.test('Действие APPLIED', () => pm.expect(ok, 'не дождались за 60 попыток').to.be.true);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Покупка без денег",
+      "description": "Сто плюшевых мишек не по карману: 409 в формате `application/problem+json` (RFC 9457).",
+      "item": [
+        {
+          "name": "Купить 99 мишек",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/purchases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "purchases"
+              ]
+            },
+            "description": "Ошибка `insufficient-funds`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": \"{{teddyId}}\",\n  \"quantity\": 99\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 409', () => pm.response.to.have.status(409));",
+                  "const p = pm.response.json();",
+                  "pm.test('problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+                  "pm.test('Тип insufficient-funds', () => pm.expect(p.type).to.match(/insufficient-funds$/));",
+                  "pm.test('Поля RFC 9457', () => pm.expect(p).to.include.keys('type', 'title', 'status', 'detail', 'instance'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Выход",
+      "description": "Выход кладёт `jti` токена в Redis (`auth:revoked:<jti>`); другие сервисы проверяют этот ключ и отклоняют старый токен.",
+      "item": [
+        {
+          "name": "Выход",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "users-service отзывает токен.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Старый токен в pets-service",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pets"
+              ]
+            },
+            "description": "Отзыв проверяет уже pets-service.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Старый токен в care-service",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "wallet"
+              ]
+            },
+            "description": "И care-service.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{playerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Вход снова",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Новый токен игрока – в `playerToken`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"{{playerLogin}}\",\n  \"password\": \"{{playerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('playerToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Иконка в Silo и кэш каталога",
+      "description": "Админ загружает иконку плюшевого мишки (файл `docs/postman/teddy.png`): объект `items/<id>.png` в бакете `tamagotchi-media` (консоль Silo – http://localhost:9001). Загрузка сбрасывает кэш; первый запрос каталога кладёт его в Redis (`care:items:all`, TTL 5 мин), следующие отдаются из кэша – это видно по времени ответа и по `redis-cli KEYS care:items:*`.",
+      "item": [
+        {
+          "name": "Загрузить иконку",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/items/{{teddyId}}/icon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "items",
+                "{{teddyId}}",
+                "icon"
+              ]
+            },
+            "description": "multipart, поле `icon`: PNG, JPEG или WebP до 512 КБ.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "icon",
+                  "type": "file",
+                  "src": "docs/postman/teddy.png"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('iconUrl', pm.response.json().iconUrl);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Иконка из Silo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{iconUrl}}",
+              "host": [
+                "{{iconUrl}}"
+              ]
+            },
+            "description": "Публичное чтение бакета: ссылка открывается без ключа.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Это PNG', () => pm.expect(pm.response.headers.get('Content-Type')).to.eql('image/png'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Каталог (из БД, кладётся в кэш)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "description": "Кэш сброшен загрузкой иконки.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));",
+                  "const teddy = pm.response.json().find((i) => i.code === 'teddy');",
+                  "pm.test('У мишки новая иконка', () => pm.expect(teddy.iconUrl).to.eql(pm.environment.get('iconUrl')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Каталог (из кэша Redis)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "description": "Тот же ответ из Redis.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Код ответа 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "pollTries",
+      "value": "0"
+    }
+  ]
+}
